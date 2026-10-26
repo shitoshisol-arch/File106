@@ -1,0 +1,22 @@
+{
+  "name": "FILE106",
+  "symbol": "F106",
+  "description": "FILE106 is a fixed-supply Solana archive token: exactly 106 coins ever minted, 8 decimals. Classified. Decoded. Immutable.",
+  "image": "https://gateway.pinata.cloud/ipfs/bafybeicl5gjlcbpxmbdiomezfv5afnkedwmzk3dizouamrs7td7ltp6vuq",
+  "external_url": "https://gateway.pinata.cloud/ipfs/bafybeicl5gjlcbpxmbdiomezfv5afnkedwmzk3dizouamrs7td7ltp6vuq",
+  "attributes": [
+    { "trait_type": "Category", "value": "Meme" },
+    { "trait_type": "Supply", "value": "106" },
+    { "trait_type": "Decimals", "value": "8" },
+    { "trait_type": "Network", "value": "Solana" }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "https://gateway.pinata.cloud/ipfs/bafybeicl5gjlcbpxmbdiomezfv5afnkedwmzk3dizouamrs7td7ltp6vuq",
+        "type": "image/png"
+      }
+    ],
+    "category": "image"
+  }
+}

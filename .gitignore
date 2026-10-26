@@ -1,0 +1,17 @@
+keys/*
+!keys/.gitkeep
+.env
+.env.*
+!.env.example
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+output/*
+!output/.gitkeep
+!output/trust/
+!output/trust/**
+dist/
+.DS_Store
