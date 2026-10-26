@@ -4,7 +4,7 @@ Submit at <https://verified.jup.ag/tokens> using **Verify token**. Standard revi
 
 ## Before submitting
 
-- [ ] Deploy the trust site in `site/` and replace `[SITE_URL]` below.
+- [x] Trust site deployed at https://shitoshisol-arch.github.io/File106/ (GitHub Pages, workflow `Deploy trust site`).
 - [ ] Create an official X account and replace `[X_URL]`. VRFD expects a project X handle.
 - [ ] Optional: create Telegram/Discord and replace the placeholders.
 - [ ] Never share a private key or seed phrase with anyone, including reviewers.
@@ -15,7 +15,7 @@ Submit at <https://verified.jup.ag/tokens> using **Verify token**. Standard revi
 Token name: FILE106
 Symbol: F106
 Mint: Ha6cqBCf5rCcka3M1BNK46BeBbZFbq5Mq1KgAjCmFiLE
-Website: [SITE_URL]
+Website: https://shitoshisol-arch.github.io/File106/
 X: [X_URL]
 Telegram: [TELEGRAM_URL]
 Discord: [DISCORD_URL]
@@ -65,7 +65,7 @@ Third-party audit: none. All security claims are verifiable on-chain.
 ## Notes for reviewers
 
 ```text
-- The on-chain metadata is immutable, so website and social links cannot be added to the Metaplex account. They are provided in this submission and on [SITE_URL].
+- The on-chain metadata is immutable, so website and social links cannot be added to the Metaplex account. They are provided in this submission and on https://shitoshisol-arch.github.io/File106/.
 - This is the first verification request; the token is not yet listed on Jupiter or CoinGecko.
 - Contract-level security is complete. The request concerns metadata accuracy and official-mint recognition.
 - The token is sellable: Jupiter returns a Raydium CPMM route for both buy and sell quotes.

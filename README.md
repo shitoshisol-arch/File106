@@ -307,7 +307,7 @@ npm run trust:report -- --json
 
 It verifies the mint program, fixed supply, decimals, revoked authorities, locked metadata, public metadata JSON, LP burn, Raydium pool, DEX market, Jupiter route, and Jupiter/CoinGecko listing status.
 
-The static trust site is in `site/`. Preview it locally with `npx serve site`, then deploy that folder to any static host (Vercel, Netlify, or GitHub Pages). Replace the `[SITE_URL]` and social placeholders in `output/trust/jupiter-vrfd-submission.md` and `output/trust/coingecko-submission.md`. The site uses only public on-chain links and has no analytics or wallet connection.
+The static trust site is in `site/` and is published at https://shitoshisol-arch.github.io/File106/ by the `Deploy trust site` workflow on every push that touches `site/`. Preview it locally with `npx serve site`. Replace the remaining social placeholders in `output/trust/jupiter-vrfd-submission.md` and `output/trust/coingecko-submission.md`. The site uses only public on-chain links and has no analytics or wallet connection.
 
 ## Windows Notes
 

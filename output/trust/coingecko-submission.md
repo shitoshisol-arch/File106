@@ -17,7 +17,7 @@ Decimals: 8
 Total supply: 106
 Circulating supply: [define; e.g., 106 minus treasury-held tokens]
 Launch date: 2026-10-26
-Website: [SITE_URL]
+Website: https://shitoshisol-arch.github.io/File106/
 Explorer: https://solscan.io/token/Ha6cqBCf5rCcka3M1BNK46BeBbZFbq5Mq1KgAjCmFiLE
 Market: Raydium CPMM pool HVpCVM92m6TkJpXpnudWEDZbjq5ucLJvJuJZAzSZhqtB
 Logo: https://gateway.pinata.cloud/ipfs/bafybeicl5gjlcbpxmbdiomezfv5afnkedwmzk3dizouamrs7td7ltp6vuq
