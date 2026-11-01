@@ -14,7 +14,9 @@
     "revoke": "tsx scripts/revoke-authorities.ts",
     "revoke:bash": "bash scripts/revoke-authorities.sh",
     "status": "tsx scripts/final-status.ts",
-    "trust:report": "tsx scripts/trust-report.ts"
+    "trust:report": "tsx scripts/trust-report.ts",
+    "test:db": "node db/tests/schema.test.mjs",
+    "hash:secret": "node scripts/archive/secret-hash.mjs"
   },
   "dependencies": {
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
@@ -27,6 +29,7 @@
     "dotenv": "^16.4.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
     "@types/node": "^22.10.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

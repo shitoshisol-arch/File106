@@ -335,3 +335,24 @@ TOKEN_LOGO_URI=https://your-real-permanent-logo.png
 ```
 
 Do not use mainnet until devnet succeeds end-to-end. Mainnet spends real SOL, and authority revocation is irreversible.
+
+## THE FILE106 ARCHIVE
+
+The interactive archive platform (secret files, F106 reward competitions, manual reward approval, partnership campaigns) is being built in stages on top of this repository. `docs/ARCHITECTURE.md` holds the integration report, threat model, and stage acceptance criteria.
+
+Stage 1 is in place and touches nothing on-chain:
+
+```bash
+npm run test:db                     # migrate + seed against a real Postgres engine (26 checks)
+npm run hash:secret -- "some text"  # generate an answer/password hash
+```
+
+| Path | Purpose |
+|---|---|
+| `db/migrations/0001_init.sql` | Archive schema, guard triggers, public and analytics views |
+| `db/seed/0001_devnet_seed.sql` | Devnet test files, campaign, participants, one unpaid reward |
+| `db/tests/schema.test.mjs` | Executes both files and proves every safety rule fires |
+| `docker-compose.yml`, `deploy/Caddyfile` | VPS stack: Postgres on loopback, Caddy for TLS |
+| `scripts/archive/` | Hash/seal helpers shared by the seed and the server |
+
+The archive app never reads `keys/`, never holds a treasury keypair, and never moves F106. Rewards stay manual: an admin pays from their own wallet and the server only verifies the signature on-chain.

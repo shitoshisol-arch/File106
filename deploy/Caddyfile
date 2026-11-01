@@ -1,0 +1,43 @@
+# FILE106 ARCHIVE — TLS terminator and reverse proxy.
+#
+# Mounted at /etc/caddy/Caddyfile by docker-compose.yml. SITE_DOMAIN comes from
+# .env; Caddy obtains and renews the certificate automatically once DNS points
+# at the VPS and ports 80/443 are open.
+#
+# Until the `app` service exists (Stage 2), every request returns 502. That is
+# the expected state for Stage 1.
+
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+
+	# Content-Security-Policy is emitted by the app, not here: the archive pages
+	# need per-request nonces for their decrypt animations, and a static header
+	# would either break them or force unsafe-inline.
+
+	request_body {
+		max_size 12MB
+	}
+
+	reverse_proxy app:3000 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 20mb
+			roll_keep 5
+		}
+		format json
+	}
+}
