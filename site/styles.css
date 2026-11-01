@@ -1490,6 +1490,12 @@ footer p {
   margin-top: 8px;
 }
 
+/* A grid stretches its children, and a stretched button reads as a banner
+   rather than an action. Actions size to their label; fields keep the width. */
+.admin-form > .btn {
+  justify-self: start;
+}
+
 .inline-form {
   display: inline;
 }
