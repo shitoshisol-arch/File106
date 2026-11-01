@@ -18,6 +18,7 @@ import { createUploadStore } from './lib/uploads.js';
 import { csrfGuard } from './lib/csrf.js';
 import { HTML } from './lib/reply.js';
 import { authRoutes } from './routes/auth.js';
+import { homeRoutes } from './routes/home.js';
 import { walletRoutes } from './routes/wallet.js';
 import { dashboardRoutes } from './routes/dashboard.js';
 import { archiveRoutes } from './routes/archive.js';
@@ -113,11 +114,14 @@ export async function buildServer({ config, db, balanceReader, mailer, logger = 
   await app.register(formbody);
 
   // The trust page and its assets are the same files GitHub Pages serves today,
-  // so there is exactly one copy of the public site.
+  // so there is exactly one copy of the public site. `index` is off because the
+  // home page is no longer a file: it is that file with the reward gate
+  // rendered into it, so `/` belongs to homeRoutes and everything else here
+  // stays a plain static asset.
   await app.register(fastifyStatic, {
     root: resolve(here, '..', config.trustPageRoot),
     prefix: '/',
-    index: ['index.html'],
+    index: false,
     cacheControl: true,
     maxAge: '1h',
   });
@@ -192,6 +196,7 @@ export async function buildServer({ config, db, balanceReader, mailer, logger = 
   // for someone to visit with a stale cookie.
   app.decorate('sessionStore', sessionStore);
 
+  await app.register(homeRoutes, { db, config, balanceReader });
   await app.register(authRoutes, { db, config, mailer });
   await app.register(walletRoutes, { db, config, balanceReader });
   await app.register(dashboardRoutes, { db, config, balanceReader });

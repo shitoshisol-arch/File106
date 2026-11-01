@@ -30,6 +30,15 @@ accurate: the signature flow lives on `/dashboard` and still asks for no
 transaction approval. A cookie/session notice is owed before the Archive
 replaces this page.
 
+Stage 3 put a live reward gate on that page, which is the one place the wording
+above had to be tightened rather than kept. `/` is no longer a static file: it
+is `site/index.html` with one region — marked `<!-- ARCHIVE-GATE -->` — rendered
+per request, so the page can report the holding of the wallet the visitor
+already proved on `/dashboard`. The footer now says exactly that: no wallet
+connection is requested here, and the balance is read by the server, never sent
+by the browser. The response is `no-store` with `vary: cookie`, because a shared
+cache would otherwise serve one participant's balance to the next visitor.
+
 ## 2. Target architecture
 
 Chosen: **custom Node server on a VPS** (your Stage-1 decision). One box, three
@@ -83,7 +92,8 @@ page survives intact:
 
 | Path | Content | Auth |
 |---|---|---|
-| `/` | HOME — the existing trust page, plus an entry point into the archive | public |
+| `/` | HOME — the existing trust page, with the **reward gate** rendered per request: files open, reward on offer, minimum holding, and the visitor's own state | public |
+| `/index.html` | `301` to `/`. The file still exists for GitHub Pages and is still reachable through the static wildcard, so the served copy has to be the one with the gate in it | public |
 | `/archive` | File list: open, locked, closed, completed | public |
 | `/archive/file-106` | Individual file; briefing, reward, status, submit form | public view, account+wallet+holding to submit |
 | `/partnerships` | Active partnership campaigns | public |
@@ -152,7 +162,10 @@ unique, so a second account cannot reuse it.
 **Balance is checked server-side.** Every gate (`ARCHIVE_RPC_URL`, mint
 `F106_MINT_ADDRESS`, decimals 8) calls `getTokenAccountsByOwner`, sums the
 owner's token accounts for that mint, and stores `holding_snapshot_f106` plus
-`balance_slot` on the submission. A browser-supplied balance is never read.
+`balance_slot` on the submission. A browser-supplied balance is never read. The
+home page's reward gate calls the same reader and the same base-unit comparison
+as the file page, so the number it shows cannot disagree with the verdict the
+submission terminal will reach.
 
 **No automatic payments.** No keypair, seed, or treasury secret exists in the
 app, the container, or `.env`. Admin pays from their own wallet and pastes a
@@ -306,7 +319,7 @@ embedded Postgres engine.
 
 ```bash
 npm install
-npm test          # 75 checks: schema guards, auth/session, wallet, RPC reader
+npm test          # 99 checks: schema guards, auth/session, wallet, RPC reader, archive
 npm start         # serves site/ and the archive routes on :3000
 ```
 
@@ -326,7 +339,7 @@ the same commit that adds the Caddy route.
 |---|---|---|
 | **1 (done)** | Architecture, schema, triggers, seed, compose, Caddy | `npm run test:db` passes — 26 checks, including every guard below |
 | **2 (done)** | Auth, sessions, wallet link, balance gate, dashboard shell | `npm run test:app` passes — 49 checks; a participant registers, verifies, signs in, links a wallet with a real ed25519 signature, and the balance is read server-side |
-| **3 (done)** | THE ARCHIVE: list, file page, admin file manager, sealed answers, private uploads | `npm run test:app` passes — 68 checks; an archivist creates a file with an answer, and the answer appears nowhere in the HTML or API, before or after publishing |
+| **3 (done)** | THE ARCHIVE: list, file page, admin file manager, sealed answers, private uploads, reward gate on HOME | `npm run test:app` passes — 73 checks; an archivist creates a file with an answer, and the answer appears nowhere in the HTML or API, before or after publishing; the home page reports the visitor's real holding without ever trusting the browser |
 | 4 | Submissions, review, winners, manual payout + tx verification | Full journey on devnet: submit → approve → pay → verify → public winner |
 | 5 | Partnership Control Room, campaigns, tasks, analytics, CSV | Campaign created, participant completes the 17 steps, stats agree with the DB |
 | 6 | Telegram bot verification, X manual-review UX polish | A real group membership check passes and fails correctly |
@@ -347,7 +360,7 @@ amount precision, invalid wallet/email formats rejected, and pausing a campaign
 preserving its reward records.
 
 `npm run test:app` drives the real Fastify app through `inject()` against an
-embedded Postgres engine and asserts 68 behaviours in four suites:
+embedded Postgres engine and asserts 73 behaviours in four suites:
 
 - **auth (25)** — the trust page still serves at `/`, security headers, archive
   404, anonymous redirect, registration → email → single-use verification →
@@ -369,7 +382,7 @@ embedded Postgres engine and asserts 68 behaviours in four suites:
   generation cannot be replayed, a non-uuid principal never reaches the foreign
   key, expired sessions read as absent and are removed, revoked sessions are
   invisible and unwritable, destroy removes the row, and a sweep clears the rest.
-- **archive (19)** — an empty archive says the vault is sealed instead of erroring;
+- **archive (24)** — an empty archive says the vault is sealed instead of erroring;
   an unknown slug is a 404 page; an anonymous visitor and a signed-in participant
   are both sent away from `/admin` (and get 401 from the API); a wrong archivist
   password creates no session; sign-in is audited and carries a CSRF token; a
@@ -382,7 +395,11 @@ embedded Postgres engine and asserts 68 behaviours in four suites:
   root, downloads with `filename*=UTF-8''`, and is invisible to the public page;
   `image/gif` is a 415 with nothing written; an oversized body is a 413; deleting
   an attachment removes the row *and* the bytes; archiving withdraws a file from
-  the public archive.
+  the public archive; and the home-page reward gate shows the figures the
+  database holds, answers `no-store` with `vary: cookie`, distinguishes
+  anonymous / no-wallet / eligible / below-gate / RPC-down, and claims no figures
+  when nothing is open. The page has one address too: `/index.html` is a 301 to
+  `/`, so the marker substitution cannot be bypassed by typing the filename.
 
 ## 12. Open items
 

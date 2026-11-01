@@ -59,7 +59,13 @@ const config = loadConfig({
   ARCHIVE_UPLOAD_MAX_BYTES: '65536',
 });
 
-const balanceReader = async () => ({ amount: '1.50000000', baseUnits: 150000000n, decimals: 8 });
+// Mutable, so the reward-gate checks can move the holding and make the RPC
+// fail without rebuilding the server.
+let holding = { amount: '1.50000000', baseUnits: 150000000n, decimals: 8 };
+const balanceReader = async () => {
+  if (holding instanceof Error) throw holding;
+  return holding;
+};
 const mailer = { delivered: false, async send() { return { delivered: false }; } };
 
 const app = await buildServer({ config, db, balanceReader, mailer, logger: false });
@@ -322,6 +328,81 @@ await check('publishing is a status change on the same record', async () => {
   assert.match(page.body, /ACCOUNT REQUIRED/);
 });
 
+console.log('the reward gate on the home page');
+
+await check('the home page carries the gate with the numbers the database holds', async () => {
+  const { response } = await getPage('/');
+
+  assert.equal(response.statusCode, 200);
+  assert.match(response.body, /REWARD GATE/);
+  assert.match(response.body, /FILES OPEN/);
+  assert.match(response.body, /250\.00000000/);
+  assert.match(response.body, /MINIMUM HOLDING/);
+  assert.match(response.body, /1\.00000000/);
+  // Anonymous sees the rule and the way in, never a balance.
+  assert.match(response.body, /ACCOUNT REQUIRED/);
+
+  // A page that names someone's holding must not be cacheable for the next
+  // visitor; a shared cache here would leak balances between participants.
+  assert.equal(response.headers['cache-control'], 'no-store');
+  assert.match(String(response.headers.vary), /cookie/i);
+});
+
+await check('the page has one address, so the filename redirects to the gate', async () => {
+  // site/index.html is still published for GitHub Pages and still served by
+  // the static handler's wildcard; without this the same page would answer on
+  // two URLs, one of them carrying an unrendered gate marker.
+  const { response } = await getPage('/index.html');
+
+  assert.equal(response.statusCode, 301);
+  assert.equal(response.headers.location, '/');
+});
+
+let holder;
+
+await check('a signed-in participant with no wallet is told to link one', async () => {
+  const page = await getPage('/login');
+  const result = await postForm(
+    '/login',
+    { csrf: csrfFrom(page.response.body), email: HOLDER.email, password: HOLDER.password },
+    page.cookies
+  );
+  assert.equal(result.statusCode, 303);
+  holder = mergeCookies(page.cookies, cookieJar(result));
+
+  const { response } = await getPage('/', holder);
+  assert.match(response.body, /LINK A WALLET/);
+  assert.match(response.body, /holder/);
+  assert.ok(!response.body.includes('GATE OPEN'), 'no wallet means no verdict');
+});
+
+await check('the gate opens only when the on-chain holding clears the lowest gate', async () => {
+  await db.query(
+    `insert into user_wallets (user_id, address, is_primary, proof_nonce, proof_message, proof_signature)
+     select id, $1, true, 'nonce', 'message', 'signature' from users where email = $2`,
+    ['So11111111111111111111111111111111111111112', HOLDER.email]
+  );
+
+  const opened = await getPage('/', holder);
+  assert.match(opened.response.body, /GATE OPEN/);
+  assert.match(opened.response.body, /1\.50000000/);
+
+  holding = { amount: '0.40000000', baseUnits: 40000000n, decimals: 8 };
+  const below = await getPage('/', holder);
+  assert.match(below.response.body, /BELOW THE GATE/);
+  assert.match(below.response.body, /0\.40000000/);
+  assert.match(below.response.body, /1\.00000000/);
+
+  // An RPC failure is a state, not a crash: the trust page still has to render.
+  holding = new Error('rpc down');
+  const down = await getPage('/', holder);
+  assert.equal(down.response.statusCode, 200);
+  assert.match(down.response.body, /CHAIN UNREACHABLE/);
+  assert.match(down.response.body, /FILE106/);
+
+  holding = { amount: '1.50000000', baseUnits: 150000000n, decimals: 8 };
+});
+
 console.log('the answer');
 
 let answerHash;
@@ -355,6 +436,7 @@ await check('the answer is sealed as a scrypt hash and stored nowhere in readabl
 
 await check('the answer and its hash are absent from every page and API response', async () => {
   const targets = [
+    ['/', anonymous],
     ['/archive', anonymous],
     [`/archive/${fileSlug}`, anonymous],
     ['/admin', admin],
@@ -515,6 +597,13 @@ await check('archiving removes a file from the public archive', async () => {
 
   const page = await app.inject({ method: 'GET', url: `/archive/${fileSlug}`, cookies: anonymous });
   assert.equal(page.statusCode, 404);
+});
+
+await check('with nothing open the gate says the vault is sealed', async () => {
+  const { response } = await getPage('/', holder);
+  assert.equal(response.statusCode, 200);
+  assert.match(response.body, /THE VAULT IS SEALED/);
+  assert.ok(!response.body.includes('FILES OPEN'), 'no figures are claimed when nothing is open');
 });
 
 console.log(`\n${passed.length} checks passed\n`);
