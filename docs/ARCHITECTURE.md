@@ -1,9 +1,10 @@
 # FILE106 — THE ARCHIVE
 
-Architecture and integration report. Stages 1–2 delivered.
+Architecture and integration report. Stages 1–3 delivered.
 
-Status: Stage 2. Nothing is deployed, nothing touches mainnet, and no treasury
-key exists anywhere in this repository.
+Status: Stage 3. Nothing is deployed, nothing touches mainnet, and no treasury
+key exists anywhere in this repository. The archive and the archivist terminal
+run locally and in tests; they have no public address yet.
 
 ---
 
@@ -91,7 +92,9 @@ page survives intact:
 | `/how-it-works` | Rules, eligibility, deadlines, reward limitations | public |
 | `/register`, `/login`, `/verify` | Account creation and verification | public |
 | `/dashboard` | MY ARCHIVE: files, submissions, rewards, missions, settings | participant |
-| `/admin/*` | OVERVIEW, FILE MANAGER, SUBMISSIONS, WINNERS, REWARDS, PARTNERSHIPS, ANALYTICS, USERS, SETTINGS, AUDIT | admin role |
+| `/admin/*` | OVERVIEW and FILE MANAGER (files, briefing, challenge answer, private exhibits) — built; SUBMISSIONS, WINNERS, REWARDS, PARTNERSHIPS, ANALYTICS, USERS, SETTINGS follow in later stages | admin role |
+| `/admin/login` | Archivist sign-in; the only unauthenticated path in the panel | public form, admin role behind it |
+| `/api/admin/files/:id/attachments` | `PUT` a private exhibit (raw body, five MIME types, `ARCHIVE_UPLOAD_MAX_BYTES` cap) | admin role + CSRF token |
 
 Server-rendered pages, no client-side router, so a locked file is locked on the
 server and the "ACCESS RESTRICTED" screen is never a CSS trick.
@@ -168,7 +171,22 @@ two rewards.
 **Admin surface.** Separate principal type, separate cookie, 12-hour session TTL,
 role checks on every route (not just nav visibility), CSRF on every mutating
 form, rate limits per IP and per account, and an append-only audit row for every
-admin action with before/after state.
+admin action with before/after state. One cookie holds one principal: signing in
+to the terminal deletes any participant identity from that session, so a
+participant account can never borrow archivist rights.
+
+**Exhibits are private by construction.** An uploaded attachment is written under
+a random 32-hex storage key on a directory outside the static web root, and
+served only by an authenticated `/admin/attachments/:id` response with
+`content-disposition: attachment` and `cache-control: private, no-store`. The
+public file page selects from `files` and never touches `file_attachments`, so a
+filename, storage key, or byte count cannot leak into the archive. Uploads accept
+five MIME types at a plugin-scoped content-type parser, so a disallowed type is
+refused at 415 before it reaches the storage layer.
+
+**The audit row is the record of intent, not a backup of secrets.**
+`challenge.answer_set` stores the format, case sensitivity and attempt limit.
+It never stores the answer or its hash.
 
 **Anti-farming, honestly.** Holding 1 F106 is cheap, so token gating alone is not
 sybil resistance. Controls: one address per account, one submission attempt per
@@ -184,6 +202,7 @@ registrations.
 | Threat | Control | Residual |
 |---|---|---|
 | Answer scraped from the page or API | Answer exists only as a hash in the DB; never in HTML, JS, JSON, or logs | Admin could leak it out of band |
+| Exhibit attachment scraped | Bytes sit outside the web root under a random storage key; only an authenticated terminal route serves them | An archivist can re-share a file by hand |
 | Answer brute-forced | `max_attempts` per challenge, per-user attempt history, per-IP rate limit, admin review of pending answers | Cheap puzzles can still be guessed across many accounts |
 | Sybil farming of rewards | unique wallet, unique (user, challenge, attempt), per-wallet win cap, eligibility snapshot | Funded multi-wallet operators |
 | Fake green social check | `status='verified'` requires `checked_at`; manual review requires a reviewer id | Human reviewer error |
@@ -261,7 +280,20 @@ sudo bash scripts/archive/bootstrap-vps.sh   # host packages, swap, firewall, Do
 node scripts/archive/init-env.mjs --domain archive.example.org   # writes .env, generates secrets
 node scripts/archive/preflight.mjs   # live-checks env, RPC and SMTP
 docker compose up -d --build   # db -> migrate -> app -> Caddy TLS
+docker compose exec app node scripts/archive/create-admin.mjs \
+  --email you@example.org --name "Your Name" --role owner   # first archivist, prompted
 ```
+
+The first archivist cannot be created from the web: the panel has no
+self-registration, by design. `create-admin.mjs` reads the password without echo
+(or from `ADMIN_PASSWORD` when scripted), hashes it with scrypt, and writes an
+audit row with `admin_id = null` because the action came from a shell rather than
+a session. Later archivists can be added the same way with `--role admin` or
+`--role reviewer`.
+
+Uploaded exhibits live on the `uploads_data` volume at `/app/var/uploads`
+(`ARCHIVE_UPLOAD_DIR`). It must be included in backups: the database records the
+checksum and the storage key, but the bytes themselves are only there.
 
 A step-by-step runbook for the zero-monthly-cost deployment (Oracle Cloud
 Always Free, DuckDNS, Helius, Brevo) — including the two Oracle firewalls, the
@@ -294,7 +326,7 @@ the same commit that adds the Caddy route.
 |---|---|---|
 | **1 (done)** | Architecture, schema, triggers, seed, compose, Caddy | `npm run test:db` passes — 26 checks, including every guard below |
 | **2 (done)** | Auth, sessions, wallet link, balance gate, dashboard shell | `npm run test:app` passes — 49 checks; a participant registers, verifies, signs in, links a wallet with a real ed25519 signature, and the balance is read server-side |
-| 3 | THE ARCHIVE: list, file page, admin file manager, private uploads | An admin creates a file with an answer; the answer appears nowhere in the HTML or API |
+| **3 (done)** | THE ARCHIVE: list, file page, admin file manager, sealed answers, private uploads | `npm run test:app` passes — 68 checks; an archivist creates a file with an answer, and the answer appears nowhere in the HTML or API, before or after publishing |
 | 4 | Submissions, review, winners, manual payout + tx verification | Full journey on devnet: submit → approve → pay → verify → public winner |
 | 5 | Partnership Control Room, campaigns, tasks, analytics, CSV | Campaign created, participant completes the 17 steps, stats agree with the DB |
 | 6 | Telegram bot verification, X manual-review UX polish | A real group membership check passes and fails correctly |
@@ -315,7 +347,7 @@ amount precision, invalid wallet/email formats rejected, and pausing a campaign
 preserving its reward records.
 
 `npm run test:app` drives the real Fastify app through `inject()` against an
-embedded Postgres engine and asserts 49 behaviours in three suites:
+embedded Postgres engine and asserts 68 behaviours in four suites:
 
 - **auth (25)** — the trust page still serves at `/`, security headers, archive
   404, anonymous redirect, registration → email → single-use verification →
@@ -337,16 +369,30 @@ embedded Postgres engine and asserts 49 behaviours in three suites:
   generation cannot be replayed, a non-uuid principal never reaches the foreign
   key, expired sessions read as absent and are removed, revoked sessions are
   invisible and unwritable, destroy removes the row, and a sweep clears the rest.
+- **archive (19)** — an empty archive says the vault is sealed instead of erroring;
+  an unknown slug is a 404 page; an anonymous visitor and a signed-in participant
+  are both sent away from `/admin` (and get 401 from the API); a wrong archivist
+  password creates no session; sign-in is audited and carries a CSRF token; a
+  draft is invisible in the list *and* by slug; a duplicate file number is a 409
+  rather than an overwrite; a reward of zero is a 400; publishing is a status
+  change on the same row; the answer is stored as `scrypt$…` and the plaintext
+  appears in none of six pages or APIs, and neither does the hash; the audit trail
+  records the change without the answer; a submission freezes the answer (409,
+  hash unchanged); an attachment is written under a random key outside the web
+  root, downloads with `filename*=UTF-8''`, and is invisible to the public page;
+  `image/gif` is a 415 with nothing written; an oversized body is a 413; deleting
+  an attachment removes the row *and* the bytes; archiving withdraws a file from
+  the public archive.
 
 ## 12. Open items
 
 | Item | Needed by | Owner |
 |---|---|---|
-| VPS provider, IP, SSH access | Stage 2 | you |
-| `SITE_DOMAIN` + DNS control | Stage 2 | you |
-| Dedicated Solana RPC URL | Stage 2 | you |
-| SMTP credentials (or accept log-printed verification links) | Stage 2 | you |
-| Admin email for the first owner account | Stage 2 | you |
+| VPS provider, IP, SSH access | Deploy | you |
+| `SITE_DOMAIN` + DNS control | Deploy | you |
+| Dedicated Solana RPC URL | Deploy | you |
+| SMTP credentials (or accept log-printed verification links) | Deploy | you |
+| Admin email for the first owner account | Deploy — `create-admin.mjs` is ready | you |
 | Telegram bot token + admin rights in groups | Stage 6 | you |
 | X API tier (only if you want real follow checks) | Stage 6+ | you |
 | Campaign copy, partner logos, reward amounts | Stage 5 | you |

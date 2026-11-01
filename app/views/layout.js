@@ -4,8 +4,21 @@
 import { html, raw } from '../lib/html.js';
 import { csrfField } from '../lib/csrf.js';
 
-export function page({ title, body, session, signedIn = false, signedInName = '', scripts = [] }) {
+// `nav` and `terminalLabel` let the archivist terminal reuse this chrome without
+// pretending to be a participant page: there is no SIGN IN link on a screen the
+// public cannot reach, and the header says which terminal you are on.
+export function page({
+  title,
+  body,
+  session,
+  signedIn = false,
+  signedInName = '',
+  scripts = [],
+  nav = null,
+  terminalLabel = '',
+}) {
   const csrf = session ? csrfField(session) : raw('');
+  const terminal = terminalLabel || (signedIn ? 'AUTHORIZED' : 'PUBLIC TERMINAL');
 
   return html`<!doctype html>
 <html lang="en">
@@ -26,17 +39,19 @@ export function page({ title, body, session, signedIn = false, signedInName = ''
         <span class="live-dot" aria-hidden="true"></span>
         <span>THE FILE106 ARCHIVE</span>
         <span class="sep">/</span>
-        <span>${signedIn ? 'AUTHORIZED' : 'PUBLIC TERMINAL'}</span>
+        <span>${terminal}</span>
       </div>
       <nav class="topbar-right archive-nav" aria-label="Archive">
         <a href="/">HOME</a>
-        ${signedIn
-          ? html`<a href="/dashboard">MY ARCHIVE</a>
-              <form method="post" action="/logout" class="nav-form">
-                ${csrf}
-                <button type="submit" class="nav-button">SIGN OUT</button>
-              </form>`
-          : html`<a href="/login">SIGN IN</a><a href="/register">REGISTER</a>`}
+        ${nav
+          ? nav
+          : signedIn
+            ? html`<a href="/dashboard">MY ARCHIVE</a>
+                <form method="post" action="/logout" class="nav-form">
+                  ${csrf}
+                  <button type="submit" class="nav-button">SIGN OUT</button>
+                </form>`
+            : html`<a href="/login">SIGN IN</a><a href="/register">REGISTER</a>`}
       </nav>
     </header>
 

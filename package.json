@@ -20,7 +20,7 @@
     "migrate": "node app/migrate.js",
     "preflight": "node scripts/archive/preflight.mjs",
     "test:db": "node db/tests/schema.test.mjs",
-    "test:app": "node app/tests/auth.test.mjs && node app/tests/solana.test.mjs && node app/tests/session.test.mjs",
+    "test:app": "node app/tests/auth.test.mjs && node app/tests/solana.test.mjs && node app/tests/session.test.mjs && node app/tests/archive.test.mjs",
     "test": "npm run test:db && npm run test:app",
     "hash:secret": "node scripts/archive/secret-hash.mjs"
   },

@@ -8,12 +8,7 @@
 import { issueNonce } from '../lib/tokens.js';
 import { walletLinkMessage, verifyWalletSignature } from '../lib/solana.js';
 import { validateWalletLink } from '../lib/validate.js';
-import { createHash } from 'node:crypto';
-
-const ipHash = (request) =>
-  createHash('sha256')
-    .update(`${request.ip}:${process.env.IP_HASH_SALT ?? 'file106-archive'}`)
-    .digest('hex');
+import { ipHash } from '../lib/ip.js';
 
 function requireUser(request, reply) {
   if (!request.user) {

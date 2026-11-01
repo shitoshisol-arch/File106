@@ -1234,6 +1234,281 @@ footer p {
   overflow-wrap: anywhere;
 }
 
+/* ---------------------------------------------------------------------
+   The archive list, file pages, and the archivist terminal
+   --------------------------------------------------------------------- */
+
+.archive-group {
+  margin-top: 40px;
+}
+
+.archive-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.archive-group-title {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--amber);
+}
+
+.file-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.file-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.file-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.file-card h3 a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.file-card h3 a:hover {
+  color: var(--amber);
+}
+
+.file-index {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.file-teaser {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.file-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.status-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.status-chip[data-state="open"] {
+  color: var(--green);
+  border-color: rgba(80, 200, 120, 0.4);
+}
+
+.status-chip[data-state="locked"] {
+  color: var(--amber);
+  border-color: rgba(255, 200, 87, 0.4);
+}
+
+.status-chip[data-state="completed"] {
+  color: var(--green);
+  border-color: var(--line-strong);
+}
+
+.status-chip[data-state="draft"],
+.status-chip[data-state="archived"] {
+  color: var(--muted);
+}
+
+.briefing {
+  margin: 32px 0;
+  padding-left: 18px;
+  border-left: 2px solid var(--line-strong);
+}
+
+/* Free text is escaped by the template; pre-wrap keeps the archivist's line
+   breaks without ever letting markup through. */
+.briefing-body {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  color: var(--muted);
+}
+
+.checklist {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.check-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+}
+
+.check-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line-strong);
+  font-size: 11px;
+}
+
+.check-item[data-ok="yes"] .check-mark {
+  color: var(--green);
+  border-color: rgba(80, 200, 120, 0.5);
+}
+
+.check-item[data-ok="no"] .check-mark {
+  color: var(--red);
+  border-color: rgba(220, 80, 80, 0.5);
+}
+
+.archive-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.admin-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 200, 87, 0.04);
+}
+
+.admin-id {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+.admin-nav a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.admin-nav a:hover,
+.admin-nav a[aria-current="page"] {
+  color: var(--amber);
+}
+
+.admin-panel {
+  margin-top: 32px;
+  padding: 20px;
+  border: 1px solid var(--line);
+}
+
+.admin-table {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.admin-table th {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-align: left;
+  color: var(--muted);
+}
+
+.admin-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table a {
+  color: var(--amber);
+}
+
+.admin-form {
+  display: grid;
+  gap: 18px;
+  max-width: 760px;
+  margin: 24px 0;
+}
+
+.field-row {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+}
+
+.compact-form {
+  max-width: 520px;
+  margin-top: 8px;
+}
+
+.inline-form {
+  display: inline;
+}
+
+.upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+textarea.field-input {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
 @media (max-width: 640px) {
   .archive-nav {
     gap: 12px;
@@ -1242,5 +1517,18 @@ footer p {
 
   .wallet-panel {
     padding: 18px;
+  }
+
+  .admin-bar {
+    flex-direction: column;
+  }
+
+  .file-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-table {
+    display: block;
+    overflow-x: auto;
   }
 }

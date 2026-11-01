@@ -205,6 +205,18 @@ verification mail arrives (or read the link from `docker compose logs app`),
 sign in, and link a wallet on `/dashboard` by signing the message. Nothing moves
 funds at any point.
 
+The panel is closed until an archivist exists, and there is no web sign-up for
+one. Create the first account from the shell; the password is prompted for
+without echo and never stored in readable form:
+
+```bash
+docker compose exec app node scripts/archive/create-admin.mjs \
+  --email you@example.org --name "Your Name" --role owner
+```
+
+Then `/admin/login` works, `/archive` is empty until you publish a file, and
+uploading an exhibit writes into the `uploads_data` volume.
+
 ## 7. Operations
 
 ```bash
@@ -213,16 +225,20 @@ docker compose restart app            # after editing .env
 git pull && docker compose up -d --build   # deploy an update (migrations run first)
 ```
 
-Nightly backups — the database is the only irreplaceable state:
+Nightly backups — two kinds of state, both irreplaceable in different ways. The
+database holds every record; the `uploads_data` volume holds the exhibit bytes
+those records point at. A dump alone restores rows whose files no longer exist:
 
 ```bash
 sudo mkdir -p /var/backups/file106
 ( crontab -l 2>/dev/null; echo '15 3 * * * cd /opt/file106 && docker compose exec -T db pg_dump -Fc -U file106 file106 > /var/backups/file106/file106-$(date +\%F).dump' ) | crontab -
+( crontab -l 2>/dev/null; echo '45 3 * * * cd /opt/file106 && docker run --rm -v file106-archive_uploads_data:/data:ro -v /var/backups/file106:/backup alpine tar czf /backup/uploads-$(date +\%F).tar.gz -C /data .' ) | crontab -
 ```
 
-Copy those dumps off the box weekly; a backup that only exists on the machine
+Copy those files off the box weekly; a backup that only exists on the machine
 that dies is not a backup. Restore test: `pg_restore -d file106 <file>.dump`
-into a scratch database.
+into a scratch database, and untar one uploads archive into a scratch volume to
+confirm the bytes still open.
 
 ---
 

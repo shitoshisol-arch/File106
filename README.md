@@ -340,27 +340,35 @@ Do not use mainnet until devnet succeeds end-to-end. Mainnet spends real SOL, an
 
 The interactive archive platform (secret files, F106 reward competitions, manual reward approval, partnership campaigns) is being built in stages on top of this repository. `docs/ARCHITECTURE.md` holds the integration report, threat model, and stage acceptance criteria.
 
-Stage 2 is in place and still touches nothing on-chain: the web app runs, accounts can register, verify and sign in, and a participant can prove wallet ownership by signing a message (no transaction, no funds move). Reward payments stay manual.
+Stage 3 is in place and still touches nothing on-chain: the web app runs, accounts can register, verify and sign in, a participant can prove wallet ownership by signing a message (no transaction, no funds move), and the public archive at `/archive` lists published files. Archivists sign in at `/admin/login` to create files, set a challenge answer, and attach private exhibits — the answer is stored only as a scrypt hash and appears in no page or API. Reward payments stay manual.
 
 ```bash
-npm test                           # full gate: schema guards + app (75 checks)
+npm test                           # full gate: schema guards + app (94 checks)
 npm run test:db                    # migrate + seed against a real Postgres engine (26 checks)
-npm run test:app                   # HTTP, sessions, wallet link, RPC reader (49 checks)
+npm run test:app                   # HTTP, sessions, wallet link, archive, uploads (68 checks)
 npm start                          # serve site/ and the archive routes on :3000
 npm run hash:secret -- "text"      # generate an answer/password hash
 ```
+
+The first archivist is created from a shell, never from the web:
+
+```bash
+node scripts/archive/create-admin.mjs --email you@example.org --name "Your Name" --role owner
+```
+
+Uploaded exhibits are written to `var/uploads` (override with `ARCHIVE_UPLOAD_DIR`). That directory is git-ignored, and on a server it is the `uploads_data` volume — back it up with the database, or the attachment rows outlive their bytes.
 
 Deploying the full stack (Postgres, migrations, app, Caddy TLS) is described in `docs/ARCHITECTURE.md` §9, with a step-by-step zero-monthly-cost runbook in `docs/DEPLOY-ZERO-COST.md`. On the server, `scripts/archive/bootstrap-vps.sh` prepares the host and `scripts/archive/init-env.mjs` writes `.env` with generated secrets; `npm run preflight` then checks `.env`, the RPC endpoint and the SMTP login before you build the stack. Nothing needs Docker locally: the app suite runs the real Fastify app, real migrations and real ed25519 signing against an embedded Postgres engine.
 
 | Path | Purpose |
 |---|---|
-| `app/` | Fastify server: session store, CSRF, auth, wallet link, dashboard |
-| `app/tests/` | Stage 2 gate: HTTP flows, signed-message verification, session CAS |
+| `app/` | Fastify server: session store, CSRF, auth, wallet link, dashboard, archive, archivist terminal |
+| `app/tests/` | Stage 2–3 gate: HTTP flows, signed-message verification, session CAS, sealed answers, private uploads |
 | `db/migrations/` | Archive schema, guard triggers, public and analytics views |
 | `db/seed/0001_devnet_seed.sql` | Devnet test files, campaign, participants, one unpaid reward |
 | `db/tests/schema.test.mjs` | Executes the migration and seed and proves every safety rule fires |
-| `Dockerfile`, `docker-compose.yml`, `deploy/Caddyfile` | VPS stack: Postgres on loopback, Caddy for TLS |
-| `site/` | The public trust page plus the wallet client used on `/dashboard` |
-| `scripts/archive/` | Hash/seal helpers shared by the seed and the server |
+| `Dockerfile`, `docker-compose.yml`, `deploy/Caddyfile` | VPS stack: Postgres on loopback, uploads volume, Caddy for TLS |
+| `site/` | The public trust page plus the wallet and upload clients |
+| `scripts/archive/` | Hash/seal helpers, env generator, preflight, and `create-admin.mjs` |
 
 The archive app never reads `keys/`, never holds a treasury keypair, and never moves F106. Rewards stay manual: an admin pays from their own wallet and the server only verifies the signature on-chain.

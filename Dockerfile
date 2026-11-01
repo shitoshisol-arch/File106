@@ -19,7 +19,8 @@ FROM node:24-alpine AS runtime
 # production, instead of generating throwaway ones.
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
-    PORT=3000
+    PORT=3000 \
+    ARCHIVE_UPLOAD_DIR=/app/var/uploads
 
 WORKDIR /app
 
@@ -28,6 +29,11 @@ COPY package.json ./
 COPY app ./app
 COPY site ./site
 COPY db/migrations ./db/migrations
+
+# Private exhibits live on a mounted volume, owned by the unprivileged user that
+# writes them. Creating it here means a fresh container has somewhere to write
+# even before the volume is populated.
+RUN mkdir -p /app/var/uploads && chown -R node:node /app/var
 
 USER node
 EXPOSE 3000

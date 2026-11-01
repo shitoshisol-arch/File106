@@ -1,6 +1,6 @@
 # FILE106 ARCHIVE — single-VPS stack.
 #
-#   cp .env.example .env          # fill in the archive section, never commit it
+#   node scripts/archive/init-env.mjs      # writes .env, never commit it
 #   docker compose up -d --build  # db -> migrate -> app, and Caddy gets TLS
 #   docker compose logs -f app
 #
@@ -60,6 +60,10 @@ services:
         condition: service_completed_successfully
       db:
         condition: service_healthy
+    volumes:
+      # Uploaded exhibits are part of the archive's state, so they must outlive
+      # the container. Losing this volume loses every attachment row's bytes.
+      - uploads_data:/app/var/uploads
     expose:
       - "3000"
 
@@ -80,5 +84,6 @@ services:
 
 volumes:
   db_data:
+  uploads_data:
   caddy_data:
   caddy_config:

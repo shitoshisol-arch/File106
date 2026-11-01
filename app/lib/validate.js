@@ -78,7 +78,168 @@ export const MESSAGES = {
   'username-taken': 'THAT USERNAME IS TAKEN.',
   'email-taken': 'THAT EMAIL IS ALREADY REGISTERED.',
   'rate-limited': 'TOO MANY ATTEMPTS. WAIT AND TRY AGAIN.',
+  'file-created': 'FILE CREATED AS A DRAFT. PUBLISH IT WHEN THE BRIEFING IS READY.',
+  'file-saved': 'FILE UPDATED.',
+  'file-unknown': 'NO SUCH FILE.',
+  'answer-saved': 'CHALLENGE ANSWER SEALED. THE PLAINTEXT IS NOT STORED ANYWHERE.',
+  'answer-locked': 'THE ANSWER CANNOT CHANGE: SOMEONE HAS ALREADY SUBMITTED AGAINST IT.',
+  'attachment-saved': 'ATTACHMENT STORED PRIVATELY.',
+  'attachment-removed': 'ATTACHMENT REMOVED.',
+  'admin-required': 'ARCHIVIST SIGN-IN REQUIRED.',
 };
+
+// ---------------------------------------------------------------------
+// Admin input: files and challenges
+// ---------------------------------------------------------------------
+
+export const DIFFICULTIES = ['easy', 'medium', 'hard', 'brutal'];
+export const WINNER_METHODS = [
+  'first_correct',
+  'limited_winners',
+  'multiple_correct',
+  'admin_selected',
+  'time_limited',
+];
+
+const SLUG = /^[a-z0-9-]{1,80}$/;
+
+// F106 has 8 decimals; every amount is handed to Postgres as a numeric string so
+// no float ever decides how much is owed.
+function amount(raw, { fallback = null, allowZero = true } = {}) {
+  const text = normalizeText(raw).replace(/,/g, '');
+  if (text === '') return { value: fallback };
+  if (!/^\d+(\.\d{1,8})?$/.test(text)) return { error: 'Use a plain number with up to 8 decimals.' };
+
+  const parsed = Number(text);
+  if (!Number.isFinite(parsed)) return { error: 'Use a plain number with up to 8 decimals.' };
+  if (parsed < 0 || (!allowZero && parsed === 0)) {
+    return { error: allowZero ? 'Cannot be negative.' : 'Must be greater than zero.' };
+  }
+  if (parsed > 1e12) return { error: 'That amount is implausibly large.' };
+
+  return { value: parsed.toFixed(8) };
+}
+
+function timestamp(raw, label) {
+  const text = normalizeText(raw);
+  if (text === '') return { value: null };
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return { error: `${label} is not a valid date and time.` };
+  return { value: parsed.toISOString() };
+}
+
+export function validateFileInput(body = {}) {
+  const errors = {};
+
+  const title = normalizeText(body.title);
+  if (!title) errors.title = 'Give the file a title.';
+  else if (title.length > 120) errors.title = 'Keep the title under 120 characters.';
+
+  const teaser = normalizeText(body.teaser);
+  if (!teaser) errors.teaser = 'Write the public teaser.';
+  else if (teaser.length > 280) errors.teaser = 'Keep the teaser under 280 characters.';
+
+  const briefing = normalizeText(body.briefing);
+  if (briefing.length > 8000) errors.briefing = 'Keep the briefing under 8000 characters.';
+
+  const numberRaw = normalizeText(body.fileNumber);
+  const number = Number.parseInt(numberRaw, 10);
+  if (!/^\d+$/.test(numberRaw) || !Number.isInteger(number) || number < 1 || number > 100000) {
+    errors.fileNumber = 'Use a whole number between 1 and 100000.';
+  }
+
+  const slugInput = normalizeText(body.slug).toLowerCase();
+  const slug = slugInput || (Number.isInteger(number) ? `file-${number}` : '');
+  if (!SLUG.test(slug)) errors.slug = 'Lowercase letters, digits and dashes only.';
+
+  const difficulty = normalizeText(body.difficulty) || 'medium';
+  if (!DIFFICULTIES.includes(difficulty)) errors.difficulty = 'Unknown difficulty.';
+
+  const winnerMethod = normalizeText(body.winnerMethod) || 'first_correct';
+  if (!WINNER_METHODS.includes(winnerMethod)) errors.winnerMethod = 'Unknown winner method.';
+
+  const reward = amount(body.reward, { fallback: null, allowZero: false });
+  if (reward.error) errors.reward = reward.error;
+  else if (reward.value === null) errors.reward = 'Enter the reward amount in F106.';
+
+  const holding = amount(body.minHolding, { fallback: '1.00000000' });
+  if (holding.error) errors.minHolding = holding.error;
+
+  const maxWinnersRaw = normalizeText(body.maxWinners);
+  let maxWinners = null;
+  if (maxWinnersRaw !== '') {
+    const parsed = Number.parseInt(maxWinnersRaw, 10);
+    if (!/^\d+$/.test(maxWinnersRaw) || parsed < 1 || parsed > 1000) {
+      errors.maxWinners = 'Use a whole number between 1 and 1000, or leave it blank.';
+    } else {
+      maxWinners = parsed;
+    }
+  }
+
+  const opens = timestamp(body.opensAt, 'Opening time');
+  if (opens.error) errors.opensAt = opens.error;
+  const closes = timestamp(body.closesAt, 'Closing time');
+  if (closes.error) errors.closesAt = closes.error;
+
+  if (opens.value && closes.value && new Date(closes.value) <= new Date(opens.value)) {
+    errors.closesAt = 'The closing time must be after the opening time.';
+  }
+
+  return {
+    errors,
+    value: {
+      fileNumber: number,
+      slug,
+      title,
+      teaser,
+      briefing,
+      difficulty,
+      winnerMethod,
+      reward: reward.value,
+      minHolding: holding.value,
+      maxWinners,
+      opensAt: opens.value,
+      closesAt: closes.value,
+    },
+  };
+}
+
+export const FILE_STATUSES = ['draft', 'open', 'locked', 'closed', 'completed', 'archived'];
+
+export function validateChallengeInput(body = {}) {
+  const errors = {};
+
+  const prompt = normalizeText(body.prompt);
+  if (!prompt) errors.prompt = 'Write the prompt the participant answers.';
+  else if (prompt.length > 4000) errors.prompt = 'Keep the prompt under 4000 characters.';
+
+  const answerFormat = normalizeText(body.answerFormat) || 'text';
+  if (!['text', 'numeric'].includes(answerFormat)) errors.answerFormat = 'Unknown answer format.';
+
+  const answer = normalizeText(body.answer);
+  if (!answer) errors.answer = 'The answer is required: it is hashed, never stored.';
+  else if (answer.length < 2) errors.answer = 'Use at least 2 characters.';
+  else if (answer.length > 500) errors.answer = 'Keep the answer under 500 characters.';
+  else if (answerFormat === 'numeric' && !/^-?\d+(\.\d+)?$/.test(answer)) {
+    errors.answer = 'A numeric answer must contain only digits, a dash and a decimal point.';
+  }
+
+  const maxAttempts = Number.parseInt(normalizeText(body.maxAttempts) || '1', 10);
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) {
+    errors.maxAttempts = 'Allow between 1 and 10 attempts.';
+  }
+
+  return {
+    errors,
+    value: {
+      prompt,
+      answer,
+      answerFormat,
+      caseSensitive: Boolean(body.caseSensitive),
+      maxAttempts,
+    },
+  };
+}
 
 export function messageText(key) {
   return Object.prototype.hasOwnProperty.call(MESSAGES, key) ? MESSAGES[key] : '';

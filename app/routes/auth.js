@@ -6,6 +6,7 @@
 
 import { hashSecret, verifySecret } from '../../scripts/archive/secret-hash.mjs';
 import { hashToken, randomToken } from '../lib/tokens.js';
+import { destroySession, regenerateSession, saveSession } from '../lib/session.js';
 import { messageText, validateLogin, validateRegistration } from '../lib/validate.js';
 import { redirect, sendPage } from '../lib/reply.js';
 import { registerPage, loginPage, verificationSentPage, linkProblemPage } from '../views/auth.js';
@@ -16,13 +17,6 @@ const DUMMY_HASH = hashSecret('archive-timing-equaliser');
 
 const REGISTRATION_LIMIT = { max: 10, timeWindow: '10 minutes' };
 const LOGIN_LIMIT = { max: 8, timeWindow: '5 minutes' };
-
-const regenerateSession = (session) =>
-  new Promise((resolve, reject) => session.regenerate((error) => (error ? reject(error) : resolve())));
-const saveSession = (session) =>
-  new Promise((resolve, reject) => session.save((error) => (error ? reject(error) : resolve())));
-const destroySession = (session) =>
-  new Promise((resolve, reject) => session.destroy((error) => (error ? reject(error) : resolve())));
 
 function uniqueViolation(error) {
   if (!error || error.code !== '23505') return null;

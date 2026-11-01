@@ -11,8 +11,8 @@
 // would break the deploy. Process environment overrides .env, so the same file
 // works inside the container.
 
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseDotEnv } from 'dotenv';
 
@@ -242,6 +242,35 @@ if (payouts.toLowerCase() === 'true') {
 
 if (env('NODE_ENV') !== 'production') {
   warn('NODE_ENV', `"${env('NODE_ENV') || 'unset'}" — the image sets production itself; expect throwaway secrets outside it`);
+}
+
+// ---------------------------------------------------------------------
+// Private exhibits
+// ---------------------------------------------------------------------
+// A volume that is mounted but not writable only fails at the first upload, in
+// front of an archivist. Prove writability here instead.
+const uploadDir = env('ARCHIVE_UPLOAD_DIR') || 'var/uploads';
+const uploadRoot = resolve(process.cwd(), uploadDir);
+try {
+  mkdirSync(uploadRoot, { recursive: true });
+  const probe = join(uploadRoot, `.preflight-${process.pid}`);
+  writeFileSync(probe, 'ok');
+  rmSync(probe, { force: true });
+  ok('ARCHIVE_UPLOAD_DIR', `${uploadRoot} (writable)`);
+} catch (error) {
+  fail(
+    'ARCHIVE_UPLOAD_DIR',
+    `${uploadRoot} is not writable (${error.code || error.message}) — every exhibit upload would fail`
+  );
+}
+
+const uploadCap = env('ARCHIVE_UPLOAD_MAX_BYTES');
+if (!uploadCap) {
+  warn('ARCHIVE_UPLOAD_MAX_BYTES', 'not set — defaulting to 8 MiB');
+} else if (!/^\d+$/.test(uploadCap) || Number(uploadCap) < 1024) {
+  fail('ARCHIVE_UPLOAD_MAX_BYTES', `${uploadCap} is not a byte count`);
+} else {
+  ok('ARCHIVE_UPLOAD_MAX_BYTES', `${(Number(uploadCap) / 1024 / 1024).toFixed(1)} MiB`);
 }
 
 // ---------------------------------------------------------------------

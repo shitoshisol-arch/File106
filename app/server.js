@@ -14,11 +14,14 @@ import formbody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
 
 import { createSessionStore } from './lib/session-store.js';
+import { createUploadStore } from './lib/uploads.js';
 import { csrfGuard } from './lib/csrf.js';
 import { HTML } from './lib/reply.js';
 import { authRoutes } from './routes/auth.js';
 import { walletRoutes } from './routes/wallet.js';
 import { dashboardRoutes } from './routes/dashboard.js';
+import { archiveRoutes } from './routes/archive.js';
+import { adminRoutes } from './routes/admin.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -117,8 +120,25 @@ export async function buildServer({ config, db, balanceReader, mailer, logger = 
   });
 
   app.decorateRequest('user', null);
+  // A session belongs to one principal, so an archivist request has `admin` set
+  // and `user` null. Both are resolved once, before any handler runs.
+  app.decorateRequest('admin', null);
 
   app.addHook('onRequest', async (request) => {
+    const adminId = request.session?.adminId;
+    if (adminId) {
+      const admin = await db.one(
+        'select id, email, display_name, role, is_active from admin_users where id = $1',
+        [adminId]
+      );
+
+      if (!admin || !admin.is_active) {
+        delete request.session.adminId;
+      } else {
+        request.admin = admin;
+      }
+    }
+
     const userId = request.session?.userId;
     if (!userId) return;
 
@@ -172,6 +192,12 @@ export async function buildServer({ config, db, balanceReader, mailer, logger = 
   await app.register(authRoutes, { db, config, mailer });
   await app.register(walletRoutes, { db, config, balanceReader });
   await app.register(dashboardRoutes, { db, config, balanceReader });
+  await app.register(archiveRoutes, { db, config, balanceReader });
+
+  // Uploads are written outside the served directory, so this store is the only
+  // way any of them can be read back.
+  const uploads = createUploadStore(config.uploads);
+  await app.register(adminRoutes, { db, config, uploads });
 
   return app;
 }

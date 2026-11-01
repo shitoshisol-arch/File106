@@ -15,3 +15,7 @@ output/*
 !output/trust/**
 dist/
 .DS_Store
+
+# Private exhibits uploaded through the archivist terminal. These are the bytes
+# behind the records in file_attachments; they never belong in git.
+var/

@@ -81,6 +81,19 @@ export function loadConfig(overrides = {}) {
     answerEncKey: secret('ANSWER_ENC_KEY', env, { hex: true }),
     sessionTtlHours: int(env.SESSION_TTL_HOURS, 168, { min: 1, max: 24 * 90 }),
     anonymousSessionTtlHours: 6,
+    // Admin sessions are deliberately shorter than participant sessions: the
+    // panel can seal answers and change what the public sees, so a stolen
+    // cookie has hours rather than a week to be useful.
+    adminSessionTtlHours: int(env.ADMIN_SESSION_TTL_HOURS, 12, { min: 1, max: 72 }),
+
+    // Uploaded exhibits live outside the served static tree and are reachable
+    // only through an admin-authenticated route. The directory is resolved
+    // against the process working directory so a container volume can back it.
+    uploads: {
+      dir: text(env.ARCHIVE_UPLOAD_DIR, 'var/uploads'),
+      maxBytes: int(env.ARCHIVE_UPLOAD_MAX_BYTES, 8 * 1024 * 1024, { min: 1024, max: 32 * 1024 * 1024 }),
+      allowedMime: ['image/png', 'image/jpeg', 'image/webp', 'application/pdf', 'text/plain'],
+    },
 
     solana: {
       rpcUrl: text(env.ARCHIVE_RPC_URL, 'https://api.mainnet-beta.solana.com'),

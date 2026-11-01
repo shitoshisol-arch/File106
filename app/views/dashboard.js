@@ -87,12 +87,13 @@ export function dashboardPage({
       </div>
 
       <div class="archive-pending">
-        <p class="eyebrow">NEXT TRANSMISSIONS</p>
-        <h2>THE ARCHIVE OPENS IN STAGE 3</h2>
+        <p class="eyebrow">THE ARCHIVE</p>
+        <h2>FILES IN CUSTODY</h2>
         <p class="fine">
-          File browsing, submissions and the reward ledger are being built on top of this account
-          system. Until they ship, nothing here reports a number it cannot prove.
+          Every published file is listed in the archive. Answers are checked against a hash the
+          server holds, so this page never reports a number it cannot prove.
         </p>
+        <p><a class="btn primary" href="/archive">ENTER THE ARCHIVE</a></p>
       </div>
     </section>`;
 
