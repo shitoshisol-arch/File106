@@ -74,7 +74,7 @@ const isPlaceholder = (value) => /change-me|changeme|example|your-|xxx|todo|plac
 // ---------------------------------------------------------------------
 const sessionSecret = env('SESSION_SECRET');
 if (!sessionSecret) {
-  fail('SESSION_SECRET', 'missing — sessions cannot be signed (see docs/DEPLOY-ZERO-COST.md §5)');
+  fail('SESSION_SECRET', 'missing — sessions cannot be signed (see docs/DEPLOY.md §5)');
 } else if (isPlaceholder(sessionSecret)) {
   fail('SESSION_SECRET', 'still a placeholder value');
 } else if (sessionSecret.length < 64) {

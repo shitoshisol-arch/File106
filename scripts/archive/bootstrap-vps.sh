@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Prepares a fresh Ubuntu 24.04 host (Oracle Cloud Always Free, Hetzner, ...)
-# for the FILE106 archive stack: packages, swap, the host firewall, Docker.
+# Prepares a fresh Ubuntu 24.04 host for the FILE106 archive stack: packages,
+# swap, the host firewall, Docker. Works on any provider — Google Cloud, Hetzner,
+# Lightsail, Oracle, a box under your desk.
 #
 #   git clone <repo> /opt/file106 && cd /opt/file106
 #   sudo bash scripts/archive/bootstrap-vps.sh
@@ -51,9 +52,10 @@ if ! swapon --show | grep -q '/swapfile'; then
 fi
 
 log "opening 80 and 443 in the host firewall"
-# Oracle's Ubuntu images ship an INPUT chain that drops everything but SSH. The
-# rule must sit *before* the catch-all REJECT, so insert by line number rather
-# than appending to the end.
+# Providers differ here. Oracle's images ship an INPUT chain that drops everything
+# but SSH, so the rule must sit *before* the catch-all REJECT — insert by line
+# number rather than appending. Most other images have no rules at all, in which
+# case appending is correct.
 open_port() {
   local port="$1"
   if iptables -C INPUT -p tcp --dport "${port}" -j ACCEPT 2>/dev/null; then
@@ -103,9 +105,19 @@ cat <<'EOF'
 
   Host prepared. Still required, and not scriptable from here:
 
-    1. Oracle console -> VCN -> Security List -> add ingress 0.0.0.0/0 TCP 80 and 443.
-       The host firewall is open now; the network firewall is a separate layer.
-    2. Point your DuckDNS subdomain at this machine's public IPv4.
+    1. Open 80 and 443 in the provider's firewall. That is a separate layer from
+       the host rules just set:
+
+         Google Cloud  VPC network -> Firewall -> ingress 0.0.0.0/0 tcp:80, tcp:443
+         Hetzner       Firewalls -> allow tcp 80 and 443
+         Lightsail     Networking -> add HTTP and HTTPS rules
+         Oracle        VCN -> Security List -> ingress 0.0.0.0/0 TCP 80 and 443
+
+       If both layers are not open, Caddy cannot obtain a certificate and nothing
+       loads. Never open 5432.
+
+    2. Reserve a static public IP, then point your DuckDNS subdomain at it. A
+       stop/start on an ephemeral address moves the IP out from under your DNS.
 
   Then, in this directory:
 

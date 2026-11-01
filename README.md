@@ -358,7 +358,7 @@ node scripts/archive/create-admin.mjs --email you@example.org --name "Your Name"
 
 Uploaded exhibits are written to `var/uploads` (override with `ARCHIVE_UPLOAD_DIR`). That directory is git-ignored, and on a server it is the `uploads_data` volume — back it up with the database, or the attachment rows outlive their bytes.
 
-Deploying the full stack (Postgres, migrations, app, Caddy TLS) is described in `docs/ARCHITECTURE.md` §9, with a step-by-step zero-monthly-cost runbook in `docs/DEPLOY-ZERO-COST.md`. On the server, `scripts/archive/bootstrap-vps.sh` prepares the host and `scripts/archive/init-env.mjs` writes `.env` with generated secrets; `npm run preflight` then checks `.env`, the RPC endpoint and the SMTP login before you build the stack. Nothing needs Docker locally: the app suite runs the real Fastify app, real migrations and real ed25519 signing against an embedded Postgres engine.
+Deploying the full stack (Postgres, migrations, app, Caddy TLS) is described in `docs/ARCHITECTURE.md` §9, with a step-by-step runbook in `docs/DEPLOY.md`. On the server, `scripts/archive/bootstrap-vps.sh` prepares the host and `scripts/archive/init-env.mjs` writes `.env` with generated secrets; `npm run preflight` then checks `.env`, the RPC endpoint and the SMTP login before you build the stack. Nothing needs Docker locally: the app suite runs the real Fastify app, real migrations and real ed25519 signing against an embedded Postgres engine.
 
 | Path | Purpose |
 |---|---|

@@ -14,6 +14,23 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    # Postgres sizes itself against the host's memory, and a free-tier box has
+    # 1 GB. Left at defaults it is the first process the OOM killer picks. These
+    # values keep the whole stack — Postgres, Node, Caddy — under about 700 MB,
+    # which leaves room for the page cache and swap headroom on a small VM.
+    # The pool in app/db.js opens at most 10 connections, plus migrations.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - max_connections=30
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - effective_cache_size=256MB
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-file106}
       POSTGRES_USER: ${POSTGRES_USER:-file106}

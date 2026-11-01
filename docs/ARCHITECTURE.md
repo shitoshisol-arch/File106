@@ -278,9 +278,13 @@ waits for Postgres to accept connections.
 
 Server prerequisites:
 
-- Ubuntu 24.04 VPS, 4 GB RAM is comfortable, 2 GB works.
+- Any Ubuntu 24.04 VPS. 4 GB of RAM is comfortable, 2 GB works, and **1 GB is
+  viable** only because `docker-compose.yml` bounds Postgres
+  (`shared_buffers=128MB`, `max_connections=30`) instead of leaving it at
+  defaults that assume the whole host. Which provider is a swappable choice —
+  §1 of the runbook offers a free-forever one, a paid one, and a card-free one.
 - Docker Engine + Compose plugin.
-- DNS A record for `SITE_DOMAIN` → VPS IP.
+- DNS A record for `SITE_DOMAIN` → VPS IP, pointing at a *static* address.
 - Ports 22, 80, 443. Postgres stays on `127.0.0.1`.
 - Nightly `pg_dump -Fc` to object storage, plus a monthly restore test.
 
@@ -308,10 +312,17 @@ Uploaded exhibits live on the `uploads_data` volume at `/app/var/uploads`
 (`ARCHIVE_UPLOAD_DIR`). It must be included in backups: the database records the
 checksum and the storage key, but the bytes themselves are only there.
 
-A step-by-step runbook for the zero-monthly-cost deployment (Oracle Cloud
-Always Free, DuckDNS, Helius, Brevo) — including the two Oracle firewalls, the
-DuckDNS/SPF trade-off and the backup schedule — is in
-[`docs/DEPLOY-ZERO-COST.md`](DEPLOY-ZERO-COST.md).
+A step-by-step runbook is in [`docs/DEPLOY.md`](DEPLOY.md) — including the choice
+of host, the DuckDNS/SPF trade-off, the memory limits of a 1 GB box, and the
+backup schedule. It presents three hosts rather than one: AWS Lightsail (the
+default, ~$7/month after a three-month trial), a ~€4/month Hetzner VPS, and a
+machine you already own.
+
+The two free-forever options are documented as shut, because they are. Oracle's
+Always Free refused the card at signup, and Google routes a KSA billing address
+to its exclusive CNTXT reseller, which requires a commercial registration — so
+the always-free tier is unreachable from a personal account in that region. A
+deployment plan that depends on an account nobody can create is not a plan.
 
 Local development needs no Docker and no database server: the test suites run
 the real migrations, the real HTTP stack and real ed25519 signing against an
@@ -405,10 +416,10 @@ embedded Postgres engine and asserts 73 behaviours in four suites:
 
 | Item | Needed by | Owner |
 |---|---|---|
-| VPS provider, IP, SSH access | Deploy | you |
-| `SITE_DOMAIN` + DNS control | Deploy | you |
-| Dedicated Solana RPC URL | Deploy | you |
-| SMTP credentials (or accept log-printed verification links) | Deploy | you |
+| An AWS Lightsail instance — Micro-1GB, $7/month after the three-month trial. Door 1a in `docs/DEPLOY.md`; the two free-forever VMs are closed (Oracle refused the card, Google routes a KSA address to CNTXT) | Deploy | you |
+| `SITE_DOMAIN` + DNS control — DuckDNS is enough | Deploy | you |
+| Helius RPC URL — the account is open, only the key is missing | Deploy | you |
+| Brevo SMTP login and a verified sender address — the account is open | Deploy | you |
 | Admin email for the first owner account | Deploy — `create-admin.mjs` is ready | you |
 | Telegram bot token + admin rights in groups | Stage 6 | you |
 | X API tier (only if you want real follow checks) | Stage 6+ | you |
