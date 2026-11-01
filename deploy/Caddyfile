@@ -2,10 +2,12 @@
 #
 # Mounted at /etc/caddy/Caddyfile by docker-compose.yml. SITE_DOMAIN comes from
 # .env; Caddy obtains and renews the certificate automatically once DNS points
-# at the VPS and ports 80/443 are open.
+# at the VPS and ports 80 and 443 are open. HTTP-01 is used, so port 80 must be
+# reachable from the internet — a proxy in front of this (orange cloud) breaks
+# the challenge.
 #
-# Until the `app` service exists (Stage 2), every request returns 502. That is
-# the expected state for Stage 1.
+# A 502 here means the app container is not up yet or is still starting; check
+# `docker compose logs app`.
 
 {$SITE_DOMAIN} {
 	encode zstd gzip
