@@ -15,10 +15,22 @@
     "revoke:bash": "bash scripts/revoke-authorities.sh",
     "status": "tsx scripts/final-status.ts",
     "trust:report": "tsx scripts/trust-report.ts",
+    "start": "node app/index.js",
+    "dev": "node --watch app/index.js",
+    "migrate": "node app/migrate.js",
+    "preflight": "node scripts/archive/preflight.mjs",
     "test:db": "node db/tests/schema.test.mjs",
+    "test:app": "node app/tests/auth.test.mjs && node app/tests/solana.test.mjs && node app/tests/session.test.mjs",
+    "test": "npm run test:db && npm run test:app",
     "hash:secret": "node scripts/archive/secret-hash.mjs"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/formbody": "^9.0.1",
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/session": "^11.1.6",
+    "@fastify/static": "^10.1.8",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
     "@metaplex-foundation/mpl-toolbox": "^0.10.0",
     "@metaplex-foundation/umi": "^1.2.0",
@@ -26,7 +38,11 @@
     "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.98.0",
     "bs58": "^6.0.0",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "fastify": "^5.12.7",
+    "nodemailer": "^10.3.1",
+    "pg": "^8.23.1",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.14",

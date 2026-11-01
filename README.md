@@ -340,19 +340,27 @@ Do not use mainnet until devnet succeeds end-to-end. Mainnet spends real SOL, an
 
 The interactive archive platform (secret files, F106 reward competitions, manual reward approval, partnership campaigns) is being built in stages on top of this repository. `docs/ARCHITECTURE.md` holds the integration report, threat model, and stage acceptance criteria.
 
-Stage 1 is in place and touches nothing on-chain:
+Stage 2 is in place and still touches nothing on-chain: the web app runs, accounts can register, verify and sign in, and a participant can prove wallet ownership by signing a message (no transaction, no funds move). Reward payments stay manual.
 
 ```bash
-npm run test:db                     # migrate + seed against a real Postgres engine (26 checks)
-npm run hash:secret -- "some text"  # generate an answer/password hash
+npm test                           # full gate: schema guards + app (75 checks)
+npm run test:db                    # migrate + seed against a real Postgres engine (26 checks)
+npm run test:app                   # HTTP, sessions, wallet link, RPC reader (49 checks)
+npm start                          # serve site/ and the archive routes on :3000
+npm run hash:secret -- "text"      # generate an answer/password hash
 ```
+
+Deploying the full stack (Postgres, migrations, app, Caddy TLS) is described in `docs/ARCHITECTURE.md` §9, with a step-by-step zero-monthly-cost runbook in `docs/DEPLOY-ZERO-COST.md`. On the server, `scripts/archive/bootstrap-vps.sh` prepares the host and `scripts/archive/init-env.mjs` writes `.env` with generated secrets; `npm run preflight` then checks `.env`, the RPC endpoint and the SMTP login before you build the stack. Nothing needs Docker locally: the app suite runs the real Fastify app, real migrations and real ed25519 signing against an embedded Postgres engine.
 
 | Path | Purpose |
 |---|---|
-| `db/migrations/0001_init.sql` | Archive schema, guard triggers, public and analytics views |
+| `app/` | Fastify server: session store, CSRF, auth, wallet link, dashboard |
+| `app/tests/` | Stage 2 gate: HTTP flows, signed-message verification, session CAS |
+| `db/migrations/` | Archive schema, guard triggers, public and analytics views |
 | `db/seed/0001_devnet_seed.sql` | Devnet test files, campaign, participants, one unpaid reward |
-| `db/tests/schema.test.mjs` | Executes both files and proves every safety rule fires |
-| `docker-compose.yml`, `deploy/Caddyfile` | VPS stack: Postgres on loopback, Caddy for TLS |
+| `db/tests/schema.test.mjs` | Executes the migration and seed and proves every safety rule fires |
+| `Dockerfile`, `docker-compose.yml`, `deploy/Caddyfile` | VPS stack: Postgres on loopback, Caddy for TLS |
+| `site/` | The public trust page plus the wallet client used on `/dashboard` |
 | `scripts/archive/` | Hash/seal helpers shared by the seed and the server |
 
 The archive app never reads `keys/`, never holds a treasury keypair, and never moves F106. Rewards stay manual: an admin pays from their own wallet and the server only verifies the signature on-chain.

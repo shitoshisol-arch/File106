@@ -1,9 +1,9 @@
 # FILE106 — THE ARCHIVE
 
-Architecture and integration report. Stage 1 deliverable.
+Architecture and integration report. Stages 1–2 delivered.
 
-Status: Stage 1. Nothing here is deployed, nothing touches mainnet, and no
-treasury key exists anywhere in this repository.
+Status: Stage 2. Nothing is deployed, nothing touches mainnet, and no treasury
+key exists anywhere in this repository.
 
 ---
 
@@ -21,10 +21,13 @@ treasury key exists anywhere in this repository.
 | Dependencies | `@solana/web3.js`, spl-token, Metaplex, tsx | Reused for server-side RPC and transaction verification. |
 | Backend | None. No server, no API, no database, no accounts | Everything in spec §3–§14 is new. |
 
-The trust page's central claim — "No analytics, no trackers, no wallet
-connection" — is true today and stops being true by design. That sentence must
-be rewritten in Stage 2, and the footer needs a cookie/session notice. Flagging
-it now so it is not published as a contradiction.
+The trust page's claim — "No analytics, no trackers, no wallet connection" — was
+true of that page and would have become misleading once the Archive gained a
+wallet gate. Stage 2 reworded it to describe the page itself ("This page carries
+no analytics, no trackers, and never asks you to connect a wallet"), which stays
+accurate: the signature flow lives on `/dashboard` and still asks for no
+transaction approval. A cookie/session notice is owed before the Archive
+replaces this page.
 
 ## 2. Target architecture
 
@@ -58,8 +61,11 @@ a build step buys nothing here and complicates CSP nonces.
 
 Runtime choices:
 
-- **Fastify** with `@fastify/session`, `@fastify/helmet`, `@fastify/rate-limit`,
-  `@fastify/csrf-protection`, `@fastify/multipart`, `@fastify/static`.
+- **Fastify** with `@fastify/session`, `@fastify/cookie`, `@fastify/helmet`,
+  `@fastify/rate-limit`, `@fastify/formbody`, `@fastify/static`. CSRF is a
+  hand-written guard rather than `@fastify/csrf-protection`, because the token is
+  rendered into server-side forms and compared in constant time on one hook that
+  every mutating request passes through.
 - **Server-rendered HTML** with small ES modules. No hydration, no client state
   store. Wallet connection uses `window.solana` / wallet-standard directly.
 - **Postgres 16** with hand-written SQL migrations (already in `db/`). No ORM in
@@ -184,6 +190,8 @@ registrations.
 | Admin pastes a fake tx URL | On-chain verification of mint, recipient, amount, and success | A near-identical transfer of the wrong amount is rejected, not accepted |
 | Admin account takeover | Separate principal, short TTL, scrypt hashes, rate-limited login, audit trail | Weak admin password |
 | Replay of a wallet signature | Single-use nonce, expiry, consumed on use, domain-separated message | — |
+| Stolen pre-login cookie promoted into a session | Session saves are compare-and-set on a generation; signing in regenerates it, so the old cookie's save is refused (`ENOENT`) | — |
+| Revoking a session | Delete the `sessions` row (or set `revoked_at`); the next request finds no session and starts anonymous | — |
 | Double payout of one reward | `rewards.confirmed_transaction_id` unique + one tx per reward + immutable once confirmed | Admin paying twice on-chain; the second reward record would fail to link |
 | Database dump | Answers encrypted, sessions hashed, no private keys stored, no treasury material | Emails/usernames are plaintext by necessity |
 | Answer change after solving | `challenges_guard` trigger | — |
@@ -231,8 +239,10 @@ why. No silent success, no editing of a past claim.
 
 ## 9. Deployment topology and runbook (prepared, not run)
 
-`docker-compose.yml` + `deploy/Caddyfile` are in place. Stage 2 adds the `app`
-service.
+`docker-compose.yml`, `Dockerfile` and `deploy/Caddyfile` are in place. The stack
+is four services: `db`, `migrate`, `app`, `proxy`. Ordering is enforced by
+compose itself — `app` waits for `migrate` to exit successfully, and `migrate`
+waits for Postgres to accept connections.
 
 Server prerequisites:
 
@@ -242,12 +252,30 @@ Server prerequisites:
 - Ports 22, 80, 443. Postgres stays on `127.0.0.1`.
 - Nightly `pg_dump -Fc` to object storage, plus a monthly restore test.
 
-Application of the schema:
+Application of the schema — and every later migration — is a deploy step, not a
+manual psql session. `migrate` applies each file in `db/migrations/` once and
+records it in `schema_migrations`, so running it again is a no-op:
 
 ```bash
-docker compose up -d db
-docker compose exec -T db psql -U file106 -d file106 -v ON_ERROR_STOP=1 \
-  < db/migrations/0001_init.sql
+sudo bash scripts/archive/bootstrap-vps.sh   # host packages, swap, firewall, Docker
+node scripts/archive/init-env.mjs --domain archive.example.org   # writes .env, generates secrets
+node scripts/archive/preflight.mjs   # live-checks env, RPC and SMTP
+docker compose up -d --build   # db -> migrate -> app -> Caddy TLS
+```
+
+A step-by-step runbook for the zero-monthly-cost deployment (Oracle Cloud
+Always Free, DuckDNS, Helius, Brevo) — including the two Oracle firewalls, the
+DuckDNS/SPF trade-off and the backup schedule — is in
+[`docs/DEPLOY-ZERO-COST.md`](DEPLOY-ZERO-COST.md).
+
+Local development needs no Docker and no database server: the test suites run
+the real migrations, the real HTTP stack and real ed25519 signing against an
+embedded Postgres engine.
+
+```bash
+npm install
+npm test          # 75 checks: schema guards, auth/session, wallet, RPC reader
+npm start         # serves site/ and the archive routes on :3000
 ```
 
 Secrets are generated on the server, never committed:
@@ -264,8 +292,8 @@ the same commit that adds the Caddy route.
 
 | Stage | Deliverable | Done when |
 |---|---|---|
-| **1 (this)** | Architecture, schema, triggers, seed, compose, Caddy | `npm run test:db` passes — 26 checks, including every guard below |
-| 2 | Auth, sessions, wallet link, balance gate, HOME + register/login | A participant registers, verifies, links a real devnet wallet, sees a real balance |
+| **1 (done)** | Architecture, schema, triggers, seed, compose, Caddy | `npm run test:db` passes — 26 checks, including every guard below |
+| **2 (done)** | Auth, sessions, wallet link, balance gate, dashboard shell | `npm run test:app` passes — 49 checks; a participant registers, verifies, signs in, links a wallet with a real ed25519 signature, and the balance is read server-side |
 | 3 | THE ARCHIVE: list, file page, admin file manager, private uploads | An admin creates a file with an answer; the answer appears nowhere in the HTML or API |
 | 4 | Submissions, review, winners, manual payout + tx verification | Full journey on devnet: submit → approve → pay → verify → public winner |
 | 5 | Partnership Control Room, campaigns, tasks, analytics, CSV | Campaign created, participant completes the 17 steps, stats agree with the DB |
@@ -273,7 +301,7 @@ the same commit that adds the Caddy route.
 | 7 | Dashboards, public records page, exports | Every number on screen traces to a query |
 | 8 | Security pass, mobile pass, backups, Pages retirement | Restore drill passes, mobile usable, no Pages deploy |
 
-## 11. Verified in this stage
+## 11. Verified in each stage
 
 `npm run test:db` executes the migration and seed against a real Postgres engine
 and asserts 26 behaviours, including: duplicate wallet rejected, duplicate
@@ -285,6 +313,30 @@ one transaction confirms one reward, confirmed reward cannot roll back, answer
 hash frozen after first submission, no plaintext answer in `submissions`, 8-decimal
 amount precision, invalid wallet/email formats rejected, and pausing a campaign
 preserving its reward records.
+
+`npm run test:app` drives the real Fastify app through `inject()` against an
+embedded Postgres engine and asserts 49 behaviours in three suites:
+
+- **auth (25)** — the trust page still serves at `/`, security headers, archive
+  404, anonymous redirect, registration → email → single-use verification →
+  sign-in, weak password refused, duplicate email refused without echoing the
+  hash, missing CSRF refused, unverified sign-in refused, generic wrong-password
+  message, session id regenerated on sign-in, wallet challenge per address,
+  forged signature refused and nothing written, genuine signature linked with a
+  server-side balance read, challenge replay refused, second account cannot link
+  the same wallet, RPC outage degrades the dashboard instead of breaking it,
+  sign-out destroys the session, and a database failure that never prints driver
+  text to the browser.
+- **solana (14)** — message format is stable and says it moves no funds, genuine
+  ed25519 signatures verify while tampered/foreign/garbage ones do not, exact
+  base-unit maths at 8 decimals (no floats, thousands of digits preserved), and
+  the production RPC reader sums only the configured mint through a recorded
+  JSON-RPC response.
+- **session (10)** — the store keys rows by digest, a stale generation is refused
+  and changes nothing, a matching generation advances the session, the same
+  generation cannot be replayed, a non-uuid principal never reaches the foreign
+  key, expired sessions read as absent and are removed, revoked sessions are
+  invisible and unwritable, destroy removes the row, and a sweep clears the rest.
 
 ## 12. Open items
 

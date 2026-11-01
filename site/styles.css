@@ -1038,3 +1038,209 @@ footer p {
     max-width: 190px;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* THE FILE106 ARCHIVE — server-rendered terminal pages                */
+/* ------------------------------------------------------------------ */
+
+.archive-nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.archive-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.archive-nav a:hover {
+  color: var(--text);
+  border-bottom-color: rgba(255, 200, 87, 0.5);
+}
+
+.nav-form {
+  display: inline;
+  margin: 0;
+}
+
+.nav-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.nav-button:hover {
+  color: var(--red);
+}
+
+.archive-section {
+  max-width: 720px;
+}
+
+.archive-title {
+  font-size: clamp(28px, 6vw, 44px);
+  letter-spacing: 0.06em;
+  margin: 8px 0 16px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--dim);
+}
+
+.field-input {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 12px 14px;
+  font: inherit;
+  border-radius: 2px;
+}
+
+.field-input:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+  border-color: var(--line-strong);
+}
+
+.field-hint {
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.field-check {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.field-errors {
+  list-style: none;
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 2px solid var(--red);
+  background: rgba(255, 122, 122, 0.06);
+  color: var(--red);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.archive-notice {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-left: 2px solid var(--amber);
+  background: rgba(255, 200, 87, 0.06);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.archive-notice[data-kind="dev"] {
+  border-left-color: var(--dim);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+}
+
+.wallet-panel {
+  margin: 32px 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.wallet-panel h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: 0.05em;
+}
+
+.wallet-address {
+  color: var(--amber);
+  margin: 0;
+}
+
+.wallet-status {
+  margin: 0;
+  min-height: 1.4em;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--dim);
+  letter-spacing: 0.06em;
+}
+
+.wallet-status[data-kind="error"] {
+  color: var(--red);
+}
+
+.wallet-status[data-kind="ok"] {
+  color: var(--green);
+}
+
+.balance-block {
+  display: grid;
+  gap: 4px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  width: 100%;
+}
+
+.balance-value {
+  font-family: var(--mono);
+  font-size: 30px;
+  color: var(--text);
+}
+
+.archive-stats {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 32px 0;
+}
+
+.archive-pending {
+  margin-top: 32px;
+  padding: 24px;
+  border: 1px dashed var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.break {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .archive-nav {
+    gap: 12px;
+    font-size: 11px;
+  }
+
+  .wallet-panel {
+    padding: 18px;
+  }
+}

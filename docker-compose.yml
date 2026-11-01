@@ -1,13 +1,11 @@
 # FILE106 ARCHIVE — single-VPS stack.
 #
-# Stage 1 ships the database and the TLS terminator. The `app` service is added
-# in Stage 2; until it exists the proxy answers 502, which is expected.
+#   cp .env.example .env          # fill in the archive section, never commit it
+#   docker compose up -d --build  # db -> migrate -> app, and Caddy gets TLS
+#   docker compose logs -f app
 #
-#   cp .env.example .env      # then fill in the archive section
-#   docker compose up -d db
-#   docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-#     -v ON_ERROR_STOP=1 < db/migrations/0001_init.sql
-#
+# Ordering is enforced, not hoped for: `app` starts only after `migrate` has
+# exited successfully, and `migrate` waits for Postgres to accept connections.
 # Postgres is published on 127.0.0.1 only. It must never listen publicly.
 
 name: file106-archive
@@ -33,6 +31,38 @@ services:
       retries: 6
       start_period: 20s
 
+  # Applies db/migrations/*.sql in order and records each one in
+  # schema_migrations, so a redeploy is a no-op instead of a re-run.
+  migrate:
+    image: ${APP_IMAGE:-file106-archive-app}
+    build: .
+    command: ["node", "app/migrate.js"]
+    restart: "no"
+    env_file: .env
+    environment:
+      # The container reaches Postgres by service name, not 127.0.0.1.
+      DATABASE_URL: postgres://${POSTGRES_USER:-file106}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-file106}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    image: ${APP_IMAGE:-file106-archive-app}
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DATABASE_URL: postgres://${POSTGRES_USER:-file106}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-file106}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    expose:
+      - "3000"
+
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -45,6 +75,8 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    depends_on:
+      - app
 
 volumes:
   db_data:

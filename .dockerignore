@@ -1,0 +1,17 @@
+# Build context hygiene. Anything statically served lives in site/, so keep the
+# image to runtime code, migrations, and the public files.
+node_modules
+.git
+.github
+.env
+.env.*
+!.env.example
+keys
+output
+docs
+deploy
+scripts
+*.md
+*.log
+db/tests
+app/tests
