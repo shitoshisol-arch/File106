@@ -120,6 +120,11 @@ export function loadConfig(overrides = {}) {
 
     trustPageRoot: text(env.TRUST_PAGE_ROOT, 'site'),
 
+    // The local preview panel embeds the app in a frame, which frame-ancestors
+    // 'none' refuses by design. The exception is opt-in and is ignored outright
+    // in production, so the deployed archive keeps both headers.
+    allowPreviewFraming: bool(env.ALLOW_PREVIEW_FRAMING) && !isProduction,
+
     warnings,
   };
 

@@ -89,7 +89,10 @@ export async function buildServer({ config, db, balanceReader, mailer, logger = 
         fontSrc: ["'self'"],
         connectSrc: ["'self'"],
         formAction: ["'self'"],
-        frameAncestors: ["'none'"],
+        // Only a local preview may be framed, and only when asked for: the
+        // deployed archive refuses framing so a clickjacked page cannot trick
+        // a signed-in archivist into pressing a button that seals an answer.
+        frameAncestors: config.allowPreviewFraming ? null : ["'none'"],
         objectSrc: ["'none'"],
         upgradeInsecureRequests: null,
       },
@@ -97,7 +100,7 @@ export async function buildServer({ config, db, balanceReader, mailer, logger = 
     crossOriginEmbedderPolicy: false,
     // The CSP already refuses framing; this keeps the legacy header honest for
     // browsers that ignore frame-ancestors.
-    xFrameOptions: { action: 'deny' },
+    xFrameOptions: config.allowPreviewFraming ? false : { action: 'deny' },
   });
 
   await app.register(rateLimit, {
