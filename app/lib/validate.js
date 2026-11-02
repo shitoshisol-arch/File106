@@ -103,9 +103,21 @@ export const WINNER_METHODS = [
 
 const SLUG = /^[a-z0-9-]{1,80}$/;
 
+// FILE106 was minted at 106 units with the mint authority revoked, so 106 is not
+// a budget that can be topped up — it is the entire supply, forever. A reward
+// above it cannot be paid and a holding requirement above it cannot be met,
+// which makes them impossible rather than merely large. Both are rejected here
+// and by a check constraint, so no seed or script can reintroduce them.
+export const TOTAL_SUPPLY_F106 = 106;
+
 // F106 has 8 decimals; every amount is handed to Postgres as a numeric string so
 // no float ever decides how much is owed.
-function amount(raw, { fallback = null, allowZero = true } = {}) {
+function amount(raw, {
+  fallback = null,
+  allowZero = true,
+  max = 1e12,
+  maxMessage = 'That amount is implausibly large.',
+} = {}) {
   const text = normalizeText(raw).replace(/,/g, '');
   if (text === '') return { value: fallback };
   if (!/^\d+(\.\d{1,8})?$/.test(text)) return { error: 'Use a plain number with up to 8 decimals.' };
@@ -115,7 +127,7 @@ function amount(raw, { fallback = null, allowZero = true } = {}) {
   if (parsed < 0 || (!allowZero && parsed === 0)) {
     return { error: allowZero ? 'Cannot be negative.' : 'Must be greater than zero.' };
   }
-  if (parsed > 1e12) return { error: 'That amount is implausibly large.' };
+  if (parsed > max) return { error: maxMessage };
 
   return { value: parsed.toFixed(8) };
 }
@@ -158,11 +170,20 @@ export function validateFileInput(body = {}) {
   const winnerMethod = normalizeText(body.winnerMethod) || 'first_correct';
   if (!WINNER_METHODS.includes(winnerMethod)) errors.winnerMethod = 'Unknown winner method.';
 
-  const reward = amount(body.reward, { fallback: null, allowZero: false });
+  const reward = amount(body.reward, {
+    fallback: null,
+    allowZero: false,
+    max: TOTAL_SUPPLY_F106,
+    maxMessage: `The reward cannot exceed the total supply, ${TOTAL_SUPPLY_F106} F106.`,
+  });
   if (reward.error) errors.reward = reward.error;
   else if (reward.value === null) errors.reward = 'Enter the reward amount in F106.';
 
-  const holding = amount(body.minHolding, { fallback: '1.00000000' });
+  const holding = amount(body.minHolding, {
+    fallback: '1.00000000',
+    max: TOTAL_SUPPLY_F106,
+    maxMessage: `The holding requirement cannot exceed the total supply, ${TOTAL_SUPPLY_F106} F106.`,
+  });
   if (holding.error) errors.minHolding = holding.error;
 
   const maxWinnersRaw = normalizeText(body.maxWinners);

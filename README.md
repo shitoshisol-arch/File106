@@ -343,9 +343,9 @@ The interactive archive platform (secret files, F106 reward competitions, manual
 Stage 3 is in place and still touches nothing on-chain: the web app runs, accounts can register, verify and sign in, a participant can prove wallet ownership by signing a message (no transaction, no funds move), and the home page carries a **reward gate** that reports the visitor's real holding — files open, reward on offer, minimum holding, and whether they clear it. The public archive at `/archive` lists published files. Archivists sign in at `/admin/login` to create files, set a challenge answer, and attach private exhibits — the answer is stored only as a scrypt hash and appears in no page or API. Reward payments stay manual.
 
 ```bash
-npm test                           # full gate: schema guards + app (99 checks)
+npm test                           # full gate: schema guards + app (100 checks)
 npm run test:db                    # migrate + seed against a real Postgres engine (26 checks)
-npm run test:app                   # HTTP, sessions, wallet link, archive, uploads, gate (73 checks)
+npm run test:app                   # HTTP, sessions, wallet link, archive, uploads, gate (74 checks)
 npm start                          # serve site/ and the archive routes on :3000
 npm run hash:secret -- "text"      # generate an answer/password hash
 ```

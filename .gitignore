@@ -19,3 +19,7 @@ dist/
 # Private exhibits uploaded through the archivist terminal. These are the bytes
 # behind the records in file_attachments; they never belong in git.
 var/
+
+# Screenshots taken while checking the rendered page. Useful locally, noise in a
+# commit — the page they capture is reproduced by the server, not stored.
+screenshot_*.png

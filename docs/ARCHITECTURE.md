@@ -330,7 +330,7 @@ embedded Postgres engine.
 
 ```bash
 npm install
-npm test          # 99 checks: schema guards, auth/session, wallet, RPC reader, archive
+npm test          # 100 checks: schema guards, auth/session, wallet, RPC reader, archive
 npm start         # serves site/ and the archive routes on :3000
 ```
 
@@ -350,7 +350,7 @@ the same commit that adds the Caddy route.
 |---|---|---|
 | **1 (done)** | Architecture, schema, triggers, seed, compose, Caddy | `npm run test:db` passes — 26 checks, including every guard below |
 | **2 (done)** | Auth, sessions, wallet link, balance gate, dashboard shell | `npm run test:app` passes — 49 checks; a participant registers, verifies, signs in, links a wallet with a real ed25519 signature, and the balance is read server-side |
-| **3 (done)** | THE ARCHIVE: list, file page, admin file manager, sealed answers, private uploads, reward gate on HOME | `npm run test:app` passes — 73 checks; an archivist creates a file with an answer, and the answer appears nowhere in the HTML or API, before or after publishing; the home page reports the visitor's real holding without ever trusting the browser |
+| **3 (done)** | THE ARCHIVE: list, file page, admin file manager, sealed answers, private uploads, reward gate on HOME | `npm run test:app` passes — 74 checks; an archivist creates a file with an answer, and the answer appears nowhere in the HTML or API, before or after publishing; the home page reports the visitor's real holding without ever trusting the browser |
 | 4 | Submissions, review, winners, manual payout + tx verification | Full journey on devnet: submit → approve → pay → verify → public winner |
 | 5 | Partnership Control Room, campaigns, tasks, analytics, CSV | Campaign created, participant completes the 17 steps, stats agree with the DB |
 | 6 | Telegram bot verification, X manual-review UX polish | A real group membership check passes and fails correctly |
@@ -393,12 +393,13 @@ embedded Postgres engine and asserts 73 behaviours in four suites:
   generation cannot be replayed, a non-uuid principal never reaches the foreign
   key, expired sessions read as absent and are removed, revoked sessions are
   invisible and unwritable, destroy removes the row, and a sweep clears the rest.
-- **archive (24)** — an empty archive says the vault is sealed instead of erroring;
+- **archive (25)** — an empty archive says the vault is sealed instead of erroring;
   an unknown slug is a 404 page; an anonymous visitor and a signed-in participant
   are both sent away from `/admin` (and get 401 from the API); a wrong archivist
   password creates no session; sign-in is audited and carries a CSRF token; a
   draft is invisible in the list *and* by slug; a duplicate file number is a 409
-  rather than an overwrite; a reward of zero is a 400; publishing is a status
+  rather than an overwrite; a reward of zero is a 400; a reward or holding above
+  the 106-token supply is a 400 and creates no row; publishing is a status
   change on the same row; the answer is stored as `scrypt$…` and the plaintext
   appears in none of six pages or APIs, and neither does the hash; the audit trail
   records the change without the answer; a submission freezes the answer (409,

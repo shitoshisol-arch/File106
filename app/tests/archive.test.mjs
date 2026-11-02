@@ -243,7 +243,7 @@ await check('an archivist creates a draft that the public cannot see', async () 
       briefing: 'Read the ledger closely. The page that is missing matters more than the ones that are not.',
       difficulty: 'hard',
       winnerMethod: 'first_correct',
-      reward: '250',
+      reward: '0.25',
       minHolding: '1',
       maxWinners: '',
       opensAt: '',
@@ -260,7 +260,7 @@ await check('an archivist creates a draft that the public cannot see', async () 
   const row = await db.one('select status, slug, reward_amount_f106::text as reward from files where id = $1', [fileId]);
   assert.equal(row.status, 'draft');
   assert.equal(row.slug, 'file-106', 'a blank slug derives from the file number');
-  assert.equal(row.reward, '250.00000000');
+  assert.equal(row.reward, '0.25000000');
   fileSlug = row.slug;
 
   const list = await app.inject({ method: 'GET', url: '/archive', cookies: anonymous });
@@ -313,6 +313,48 @@ await check('an impossible reward is rejected by validation', async () => {
   assert.equal(rows.length, 0);
 });
 
+await check('a reward or holding above the supply is refused', async () => {
+  // 106 F106 is the entire supply and the mint authority is revoked, so a
+  // 250 F106 reward is not a generous number, it is an unpayable one. A holding
+  // requirement above the supply is equally unsatisfiable. Neither may be stored.
+  const reward = await postForm(
+    '/admin/files',
+    {
+      csrf: adminCsrf,
+      fileNumber: '108',
+      title: 'Unpayable Reward',
+      teaser: 'More F106 than exists.',
+      difficulty: 'easy',
+      reward: '250',
+      minHolding: '1',
+      winnerMethod: 'first_correct',
+    },
+    admin
+  );
+
+  assert.equal(reward.statusCode, 400);
+  assert.match(reward.body, /cannot exceed the total supply/i);
+
+  const holding = await postForm(
+    '/admin/files',
+    {
+      csrf: adminCsrf,
+      fileNumber: '109',
+      title: 'Impossible Gate',
+      teaser: 'A holding no wallet can reach.',
+      difficulty: 'easy',
+      reward: '0.25',
+      minHolding: '107',
+      winnerMethod: 'first_correct',
+    },
+    admin
+  );
+
+  assert.equal(holding.statusCode, 400);
+  const rows = await db.many('select id from files where file_number in (108, 109)');
+  assert.equal(rows.length, 0, 'neither file may be created');
+});
+
 await check('publishing is a status change on the same record', async () => {
   const result = await postForm(`/admin/files/${fileId}/status`, { csrf: adminCsrf, status: 'open' }, admin);
   assert.equal(result.statusCode, 303);
@@ -336,9 +378,26 @@ await check('the home page carries the gate with the numbers the database holds'
   assert.equal(response.statusCode, 200);
   assert.match(response.body, /REWARD GATE/);
   assert.match(response.body, /FILES OPEN/);
-  assert.match(response.body, /250\.00000000/);
+
+  // Derived rather than written into the test. A literal here agreed with 250
+  // F106 for weeks, which is more than the token will ever have in existence:
+  // the check passed and the page lied. Ask the database instead, with the same
+  // predicate the route uses.
+  const offered = await db.one(
+    `select coalesce(sum(reward_amount_f106), 0)::text as on_offer,
+            coalesce(min(min_holding_f106), 0)::text  as gate
+       from files
+      where is_enabled and status = 'open'`
+  );
+  assert.ok(
+    response.body.includes(offered.on_offer),
+    `the page must show what is on offer, ${offered.on_offer}`
+  );
   assert.match(response.body, /MINIMUM HOLDING/);
-  assert.match(response.body, /1\.00000000/);
+  assert.ok(
+    response.body.includes(offered.gate),
+    `the page must show the cheapest gate, ${offered.gate}`
+  );
   // Anonymous sees the rule and the way in, never a balance.
   assert.match(response.body, /ACCOUNT REQUIRED/);
 
