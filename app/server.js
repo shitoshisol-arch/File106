@@ -22,6 +22,7 @@ import { homeRoutes } from './routes/home.js';
 import { walletRoutes } from './routes/wallet.js';
 import { dashboardRoutes } from './routes/dashboard.js';
 import { archiveRoutes } from './routes/archive.js';
+import { investigateRoutes } from './routes/investigate.js';
 import { adminRoutes } from './routes/admin.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -40,7 +41,7 @@ const SERVER_ERROR_HTML = `<!doctype html><html lang="en"><head><meta charset="u
 <h1>TRANSMISSION INTERRUPTED</h1><p>The archive logged this fault. Nothing was charged and no funds moved.</p>
 <p><a class="btn ghost" href="/">Return to FILE106</a></p></div></main></body></html>`;
 
-export async function buildServer({ config, db, balanceReader, mailer, logger = false }) {
+export async function buildServer({ config, db, balanceReader, mailer, transactionVerifier = null, logger = false }) {
   const app = Fastify({
     logger: logger || false,
     trustProxy: true,
@@ -114,10 +115,8 @@ export async function buildServer({ config, db, balanceReader, mailer, logger = 
   await app.register(formbody);
 
   // The trust page and its assets are the same files GitHub Pages serves today,
-  // so there is exactly one copy of the public site. `index` is off because the
-  // home page is no longer a file: it is that file with the reward gate
-  // rendered into it, so `/` belongs to homeRoutes and everything else here
-  // stays a plain static asset.
+  // so there is exactly one copy of the public site. `index` is off so `/`
+  // belongs to homeRoutes and everything else here stays a plain static asset.
   await app.register(fastifyStatic, {
     root: resolve(here, '..', config.trustPageRoot),
     prefix: '/',
@@ -201,11 +200,12 @@ export async function buildServer({ config, db, balanceReader, mailer, logger = 
   await app.register(walletRoutes, { db, config, balanceReader });
   await app.register(dashboardRoutes, { db, config, balanceReader });
   await app.register(archiveRoutes, { db, config, balanceReader });
+  await app.register(investigateRoutes, { db, config });
 
   // Uploads are written outside the served directory, so this store is the only
   // way any of them can be read back.
   const uploads = createUploadStore(config.uploads);
-  await app.register(adminRoutes, { db, config, uploads });
+  await app.register(adminRoutes, { db, config, uploads, balanceReader, transactionVerifier });
 
   return app;
 }

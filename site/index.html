@@ -13,6 +13,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
+  <!-- F106_CSRF -->
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -30,20 +31,21 @@
 
     <main id="main">
 
-      <!-- ARCHIVE-GATE -->
-
       <section class="hero">
         <div class="hero-copy">
           <p class="kicker">ARCHIVE TOKEN / 106 UNITS</p>
           <h1>FILE<span>106</span></h1>
+          <p class="mystery-status"><span>PROJECT105: TERMINATED.</span> <span>FILE106: STILL ACTIVE.</span></p>
           <div class="ticker-row">
             <span class="ticker">F106</span>
             <span class="chain">SPL TOKEN · 8 DECIMALS</span>
           </div>
           <p class="lede">106 coins. Minted once. No mint key. No freeze key. No metadata edits. Liquidity burned.</p>
+          <blockquote class="mystery-quote">“Some files were never meant to be opened.”</blockquote>
 
           <div class="cta">
-            <a class="btn primary" href="https://solscan.io/token/Ha6cqBCf5rCcka3M1BNK46BeBbZFbq5Mq1KgAjCmFiLE" target="_blank" rel="noopener noreferrer">Verify on Solscan</a>
+            <a class="btn primary" href="/investigate">ENTER THE ARCHIVE</a>
+            <a class="btn ghost" href="https://solscan.io/token/Ha6cqBCf5rCcka3M1BNK46BeBbZFbq5Mq1KgAjCmFiLE" target="_blank" rel="noopener noreferrer">Verify on Solscan</a>
             <a class="btn" href="https://jup.ag/swap/SOL-Ha6cqBCf5rCcka3M1BNK46BeBbZFbq5Mq1KgAjCmFiLE" target="_blank" rel="noopener noreferrer">Trade on Jupiter</a>
             <a class="btn ghost" href="#proof">See on-chain proof</a>
             <a class="btn ghost" href="/archive">Enter the archive</a>
@@ -57,6 +59,11 @@
             <button class="copy" type="button" data-copy="Ha6cqBCf5rCcka3M1BNK46BeBbZFbq5Mq1KgAjCmFiLE" aria-label="Copy official mint address">Copy</button>
           </div>
           <p class="micro">The mint ends in <span class="mono">FiLE</span>. Tickers can be copied. The mint cannot.</p>
+
+          <div class="mystery-teaser">
+            <button type="button" class="glyph" data-clue="1" aria-label="Investigate the hidden FILE106 symbol">8_*</button>
+            <p class="fine">A symbol that should not exist. It appears in the recovered files. Someone left it there on purpose.</p>
+          </div>
         </div>
 
         <div class="hero-art">
@@ -89,6 +96,42 @@
             <figcaption>EXHIBIT A · FILE106</figcaption>
           </figure>
         </div>
+      </section>
+
+      <section class="section" id="mystery">
+        <div class="section-head">
+          <p class="eyebrow">THE INCIDENT</p>
+          <h2>PROJECT105: TERMINATED.</h2>
+          <p>FILE106: STILL ACTIVE. Some files were never meant to be opened.</p>
+        </div>
+
+        <div class="mystery-grid">
+          <article class="mystery-card">
+            <p class="file-index mono">FILE 105 / CHAPTER 01</p>
+            <h3>PROJECT105</h3>
+            <p class="file-teaser">The experiment was erased from the records. Its operators disappeared. The project was marked terminated.</p>
+            <p class="file-meta"><span class="status-chip" data-state="closed">TERMINATED</span></p>
+          </article>
+
+          <article class="mystery-card">
+            <p class="file-index mono">FILE 106 / CHAPTER 02</p>
+            <h3>THE UNEXPECTED FILE</h3>
+            <p class="file-teaser">After the termination, an unknown file appeared. No creator. No documented origin. No valid timestamp.</p>
+            <p class="file-meta"><span class="status-chip" data-state="locked">UNKNOWN</span></p>
+          </article>
+
+          <article class="mystery-card">
+            <p class="file-index mono">FILE 106 / CHAPTER 03</p>
+            <h3>THE SYMBOL</h3>
+            <p class="file-teaser">A strange smiley appeared in recovered documents. Nobody knows why it exists. It is the recurring sign of the incident.</p>
+            <p class="file-meta"><span class="status-chip" data-state="open">8_*</span></p>
+          </article>
+        </div>
+
+        <p class="archive-cta">
+          <a class="btn primary" href="/investigate">OPEN THE INVESTIGATION</a>
+          <a class="btn ghost" href="/archive">FILES IN CUSTODY</a>
+        </p>
       </section>
 
       <section class="stats" aria-label="Token facts">
@@ -358,10 +401,11 @@
         <a href="https://jup.ag/swap/SOL-Ha6cqBCf5rCcka3M1BNK46BeBbZFbq5Mq1KgAjCmFiLE" target="_blank" rel="noopener noreferrer">Jupiter</a>
         <a href="https://dexscreener.com/solana/HVpCVM92m6TkJpXpnudWEDZbjq5ucLJvJuJZAzSZhqtB" target="_blank" rel="noopener noreferrer">DexScreener</a>
       </div>
-      <p>FILE106 is a fixed-supply archive/meme token with no intrinsic value and no expectation of profit. Nothing here is financial advice. Always verify the mint address before trading. This page carries no analytics and no trackers, and it never asks you to connect a wallet. If you have already linked one to an account, the reward gate above reads that account's holding itself — it never asks the browser for a balance.</p>
+      <p>FILE106 is a fixed-supply archive/meme token with no intrinsic value and no expectation of profit. Nothing here is financial advice. Always verify the mint address before trading. This page carries no analytics and no trackers, and it never asks you to connect a wallet or reads a balance from your browser.</p>
     </footer>
   </div>
 
   <script src="./app.js" defer></script>
+  <script src="./mystery.js" defer></script>
 </body>
 </html>

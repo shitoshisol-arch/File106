@@ -11,7 +11,7 @@ const roleLabel = (role) => String(role || '').toUpperCase();
 // bar only points back at the public archive.
 const ADMIN_NAV = html`<a href="/archive">VIEW ARCHIVE</a>`;
 
-function adminShell({ admin, active, body }) {
+export function adminShell({ admin, active, body }) {
   return html`<section class="section archive-section">
     <div class="admin-bar">
       <div>
@@ -24,6 +24,11 @@ function adminShell({ admin, active, body }) {
         <a href="/admin" ${active === 'overview' ? raw('aria-current="page"') : raw('')}>OVERVIEW</a>
         <a href="/admin/files" ${active === 'files' ? raw('aria-current="page"') : raw('')}>FILES</a>
         <a href="/admin/files/new">NEW FILE</a>
+        <a href="/admin/chapters" ${active === 'chapters' ? raw('aria-current="page"') : raw('')}>CHAPTERS</a>
+        <a href="/admin/clues" ${active === 'clues' ? raw('aria-current="page"') : raw('')}>CLUES</a>
+        <a href="/admin/submissions" ${active === 'submissions' ? raw('aria-current="page"') : raw('')}>SUBMISSIONS</a>
+        <a href="/admin/rewards" ${active === 'rewards' ? raw('aria-current="page"') : raw('')}>REWARDS</a>
+        <a href="/admin/progress" ${active === 'progress' ? raw('aria-current="page"') : raw('')}>PROGRESS</a>
         <form method="post" action="/admin/logout" class="nav-form">
           ${csrfField({ csrf: admin.csrf })}
           <button type="submit" class="nav-button">SIGN OUT</button>
@@ -36,7 +41,7 @@ function adminShell({ admin, active, body }) {
 
 const sizeLabel = (bytes) => `${(Number(bytes) / 1024).toFixed(1)} KB`;
 
-function textField({ name, label, value = '', type = 'text', hint = '', required = true, step = '' }) {
+export function textField({ name, label, value = '', type = 'text', hint = '', required = true, step = '' }) {
   return html`<label class="field">
     <span class="field-label">${label}</span>
     <input
@@ -51,7 +56,7 @@ function textField({ name, label, value = '', type = 'text', hint = '', required
   </label>`;
 }
 
-function textArea({ name, label, value = '', rows = 6, hint = '' }) {
+export function textArea({ name, label, value = '', rows = 6, hint = '' }) {
   return html`<label class="field">
     <span class="field-label">${label}</span>
     <textarea class="field-input" name="${name}" rows="${rows}">${value}</textarea>
@@ -59,7 +64,7 @@ function textArea({ name, label, value = '', rows = 6, hint = '' }) {
   </label>`;
 }
 
-function selectField({ name, label, options, value, hint = '' }) {
+export function selectField({ name, label, options, value, hint = '' }) {
   return html`<label class="field">
     <span class="field-label">${label}</span>
     <select class="field-input" name="${name}">
@@ -95,7 +100,7 @@ export function adminLoginPage({ session, errors = {}, values = {}, message = ''
   return page({ title: 'FILE106 — ARCHIVIST', body, session, terminalLabel: 'ARCHIVIST' });
 }
 
-function stat(label, value, note) {
+export function stat(label, value, note) {
   return html`<div class="stat">
     <span class="stat-label">${label}</span>
     <strong>${value}</strong>
@@ -109,10 +114,12 @@ export function adminOverviewPage({ admin, stats, recent = [], message = '' }) {
     ${notice('admin', message)}
 
     <div class="stats archive-stats">
-      ${stat('FILES', stats.files ?? 0, `${stats.open ?? 0} open`)}
+      ${stat('FILES', stats.files ?? 0, `${stats.open ?? 0} open · ${stats.mystery_files ?? 0} mystery`)}
       ${stat('IN DRAFT', stats.draft ?? 0, 'Invisible to the public')}
-      ${stat('SUBMISSIONS', stats.submissions ?? 0, 'All files')}
-      ${stat('AWAITING REVIEW', stats.pending ?? 0, 'Pending an archivist')}
+      ${stat('SUBMISSIONS', stats.submissions ?? 0, `${stats.pending ?? 0} awaiting review`)}
+      ${stat('PAYMENTS', stats.awaiting_payment ?? 0, 'Awaiting manual payment')}
+      ${stat('CHAPTERS', stats.chapters ?? 0, 'Published')}
+      ${stat('CLUES', stats.clues ?? 0, 'Enabled signals')}
     </div>
 
     <div class="admin-panel">
@@ -272,6 +279,35 @@ export function adminFileEditorPage({
       <div class="field-row">
         ${textField({ name: 'opensAt', label: 'OPENS (UTC)', type: 'datetime-local', value: values.opensAt ?? '', required: false })}
         ${textField({ name: 'closesAt', label: 'CLOSES (UTC)', type: 'datetime-local', value: values.closesAt ?? '', required: false })}
+      </div>
+
+      <div class="admin-panel">
+        <p class="eyebrow">MYSTERY LAYER</p>
+        <p class="fine">These fields are only used when the file is part of the Project105 investigation.</p>
+        <label class="field field-check">
+          <input type="checkbox" name="isMystery" value="1" ${values.isMystery ? raw('checked') : raw('')}>
+          <span>Treat as a mystery file (enables lock rules and document rendering)</span>
+        </label>
+        <div class="field-row">
+          ${textField({ name: 'classification', label: 'CLASSIFICATION', value: values.classification ?? 'UNCLASSIFIED', required: false })}
+          ${textField({ name: 'chapterNo', label: 'CHAPTER', type: 'number', value: values.chapterNo ?? '', required: false })}
+          ${textField({ name: 'mysteryOrder', label: 'ORDER', type: 'number', value: values.mysteryOrder ?? '', required: false })}
+        </div>
+        ${textArea({ name: 'loreBody', label: 'RECOVERED DOCUMENT', value: values.loreBody ?? '', rows: 12, hint: 'Use [[SYMBOL:1]] and [[REDACT:2]] to attach clues. Clue text is only revealed server-side.' })}
+        ${textArea({ name: 'unlockHint', label: 'UNLOCK HINT', value: values.unlockHint ?? '', rows: 2, hint: 'Shown to the visitor on a code-locked file. Never include the code.' })}
+        <div class="field-row">
+          ${textField({ name: 'requiredFileNumber', label: 'REQUIRED FILE NUMBER', type: 'number', value: values.requiredFileNumber ?? '', required: false })}
+          ${textField({ name: 'unlockRequiresClue', label: 'REQUIRES CLUE NUMBER', type: 'number', value: values.unlockRequiresClue ?? '', required: false })}
+        </div>
+        <div class="field-row">
+          ${textField({ name: 'unlockCode', label: values.hasUnlockCode ? 'NEW ACCESS CODE (leave blank to keep)' : 'ACCESS CODE', type: 'password', value: '', required: false, hint: 'Stored as a scrypt hash, never shown again.' })}
+        </div>
+        ${values.hasUnlockCode
+          ? html`<label class="field field-check">
+              <input type="checkbox" name="removeUnlockCode" value="1">
+              <span>Remove the existing access code</span>
+            </label>`
+          : raw('')}
       </div>
 
       <button class="btn primary" type="submit">${isNew ? 'CREATE DRAFT' : 'SAVE CHANGES'}</button>

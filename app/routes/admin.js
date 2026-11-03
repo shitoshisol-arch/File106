@@ -33,6 +33,7 @@ import {
   adminLoginPage,
   adminOverviewPage,
 } from '../views/admin.js';
+import { registerMysteryAdminRoutes } from './adminMystery.js';
 
 // A hash is always compared, even for an address that does not exist, so the
 // response time cannot be used to enumerate archivists.
@@ -70,6 +71,11 @@ const fileSnapshot = (row) => ({
   winnerMethod: row.winner_method,
   opensAt: row.opens_at,
   closesAt: row.closes_at,
+  classification: row.classification,
+  chapterNo: row.chapter_no,
+  mysteryOrder: row.mystery_order,
+  isMystery: row.is_mystery,
+  hasUnlockCode: row.has_unlock_code,
 });
 
 function editorValues(file, overrides = {}) {
@@ -79,6 +85,7 @@ function editorValues(file, overrides = {}) {
       winnerMethod: 'first_correct',
       reward: '',
       minHolding: '1',
+      classification: 'UNCLASSIFIED',
       ...overrides,
     };
   }
@@ -96,6 +103,15 @@ function editorValues(file, overrides = {}) {
     maxWinners: file.max_winners ?? '',
     opensAt: dateTimeInput(file.opens_at),
     closesAt: dateTimeInput(file.closes_at),
+    classification: file.classification ?? '',
+    loreBody: file.lore_body ?? '',
+    chapterNo: file.chapter_no ?? '',
+    mysteryOrder: file.mystery_order ?? '',
+    unlockHint: file.unlock_hint ?? '',
+    requiredFileNumber: file.required_file_number ?? '',
+    unlockRequiresClue: file.unlock_requires_clue ?? '',
+    hasUnlockCode: Boolean(file.has_unlock_code),
+    isMystery: Boolean(file.is_mystery),
     ...overrides,
   };
 }
@@ -108,10 +124,23 @@ function safeFilename(raw) {
 
 async function loadFile(db, id) {
   if (!/^[0-9a-f-]{36}$/i.test(String(id))) return null;
-  return db.one('select * from files where id = $1', [id]);
+  // Explicit columns: unlock_code_hash is never fetched into a page. The
+  // boolean tells the editor whether a code is already set.
+  return db.one(
+    `select id, file_number, slug, title, teaser, briefing, difficulty, status,
+            is_enabled, reward_amount_f106, min_holding_f106, winner_method,
+            max_winners, opens_at, closes_at, archived_at, created_by,
+            created_at, updated_at, chapter_no, classification, lore_body,
+            unlock_hint, required_file_number, unlock_requires_clue,
+            is_mystery, mystery_order,
+            (unlock_code_hash is not null) as has_unlock_code
+       from files
+      where id = $1`,
+    [id]
+  );
 }
 
-export async function adminRoutes(app, { db, config, uploads }) {
+export async function adminRoutes(app, { db, config, uploads, balanceReader, transactionVerifier = null }) {
   // Scoped to this plugin: only the upload route accepts a raw body, and it
   // accepts only the types an exhibit may have.
   app.addContentTypeParser(
@@ -224,7 +253,11 @@ export async function adminRoutes(app, { db, config, uploads }) {
          (select count(*)::int from files where status = 'open')             as open,
          (select count(*)::int from files where status = 'draft')            as draft,
          (select count(*)::int from submissions)                             as submissions,
-         (select count(*)::int from submissions where status = 'pending_review') as pending`
+         (select count(*)::int from submissions where status in ('pending_review','correct')) as pending,
+         (select count(*)::int from files where is_mystery)                   as mystery_files,
+         (select count(*)::int from story_chapters where status = 'published') as chapters,
+         (select count(*)::int from clues where is_enabled)                  as clues,
+         (select count(*)::int from rewards where payment_status = 'awaiting_payment') as awaiting_payment`
     );
 
     const recent = await db.many(
@@ -302,8 +335,11 @@ export async function adminRoutes(app, { db, config, uploads }) {
         `insert into files
            (file_number, slug, title, teaser, briefing, difficulty, status,
             reward_amount_f106, min_holding_f106, winner_method, max_winners,
-            opens_at, closes_at, created_by)
-         values ($1, $2, $3, $4, $5, $6, 'draft', $7, $8, $9, $10, $11, $12, $13)
+            opens_at, closes_at, classification, lore_body, chapter_no,
+            mystery_order, unlock_hint, required_file_number, unlock_requires_clue,
+            is_mystery, unlock_code_hash, created_by)
+         values ($1, $2, $3, $4, $5, $6, 'draft', $7, $8, $9, $10, $11, $12,
+                 $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
          returning id, file_number, slug`,
         [
           value.fileNumber,
@@ -318,6 +354,15 @@ export async function adminRoutes(app, { db, config, uploads }) {
           value.maxWinners,
           value.opensAt,
           value.closesAt,
+          value.classification,
+          value.loreBody || null,
+          value.chapterNo,
+          value.mysteryOrder,
+          value.unlockHint || null,
+          value.requiredFileNumber,
+          value.unlockRequiresClue,
+          value.isMystery,
+          value.unlockCode ? hashSecret(value.unlockCode.normalize('NFKC')) : null,
           request.admin.id,
         ]
       );
@@ -427,7 +472,15 @@ export async function adminRoutes(app, { db, config, uploads }) {
         `update files
             set file_number = $2, slug = $3, title = $4, teaser = $5, briefing = $6,
                 difficulty = $7, reward_amount_f106 = $8, min_holding_f106 = $9,
-                winner_method = $10, max_winners = $11, opens_at = $12, closes_at = $13
+                winner_method = $10, max_winners = $11, opens_at = $12, closes_at = $13,
+                classification = $14, lore_body = $15, chapter_no = $16,
+                mystery_order = $17, unlock_hint = $18, required_file_number = $19,
+                unlock_requires_clue = $20, is_mystery = $21,
+                unlock_code_hash = case
+                  when $22::boolean then null
+                  when $23::text is not null then $23
+                  else unlock_code_hash
+                end
           where id = $1`,
         [
           before.id,
@@ -443,6 +496,16 @@ export async function adminRoutes(app, { db, config, uploads }) {
           value.maxWinners,
           value.opensAt,
           value.closesAt,
+          value.classification,
+          value.loreBody || null,
+          value.chapterNo,
+          value.mysteryOrder,
+          value.unlockHint || null,
+          value.requiredFileNumber,
+          value.unlockRequiresClue,
+          value.isMystery,
+          value.removeUnlockCode,
+          value.unlockCode ? hashSecret(value.unlockCode.normalize('NFKC')) : null,
         ]
       );
     } catch (error) {
@@ -655,5 +718,19 @@ export async function adminRoutes(app, { db, config, uploads }) {
     }
 
     return redirect(reply, `/admin/files/${file.id}?notice=attachment-removed`);
+  });
+
+  // -------------------------------------------------------------------
+  // The mystery layer's screens live in their own module but are registered
+  // inside this plugin, after the auth hook above, so they cannot be reached
+  // without an archivist session.
+  // -------------------------------------------------------------------
+  await registerMysteryAdminRoutes(app, {
+    db,
+    config,
+    balanceReader,
+    transactionVerifier,
+    withCsrf,
+    audit,
   });
 }

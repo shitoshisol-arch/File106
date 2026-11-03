@@ -2,6 +2,7 @@ import { csrfToken } from '../lib/csrf.js';
 import { messageText } from '../lib/validate.js';
 import { redirect, sendPage } from '../lib/reply.js';
 import { dashboardPage } from '../views/dashboard.js';
+import { loadInvestigation } from '../lib/investigation.js';
 
 function dateLabel(value) {
   if (!value) return '—';
@@ -31,7 +32,7 @@ export async function dashboardRoutes(app, { db, config, balanceReader }) {
         balance = await balanceReader(wallet.address);
       } catch (error) {
         request.log.warn({ err: error.message }, 'balance read failed on dashboard');
-        balanceError = `RPC unreachable · showing the balance captured when the wallet was linked`;
+        balanceError = 'RPC unreachable — showing the balance captured when the wallet was linked';
         balance = {
           amount: wallet.first_seen_balance_f106,
           decimals: config.solana.decimals,
@@ -48,6 +49,8 @@ export async function dashboardRoutes(app, { db, config, balanceReader }) {
            where user_id = $1 and payment_status = 'confirmed') as confirmed`,
       [user.id]
     );
+
+    const investigation = await loadInvestigation(db, user.id);
 
     return sendPage(
       reply,
@@ -70,6 +73,7 @@ export async function dashboardRoutes(app, { db, config, balanceReader }) {
           wins: stats?.wins ?? 0,
           confirmedF106: stats?.confirmed ?? '0.00000000',
         },
+        investigation,
         csrfToken: csrfToken(request.session),
         message: messageText(String(request.query?.notice ?? '')),
       })

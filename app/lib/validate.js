@@ -86,6 +86,46 @@ export const MESSAGES = {
   'attachment-saved': 'ATTACHMENT STORED PRIVATELY.',
   'attachment-removed': 'ATTACHMENT REMOVED.',
   'admin-required': 'ARCHIVIST SIGN-IN REQUIRED.',
+  // Mystery layer
+  'file-unlocked': 'ACCESS CODE ACCEPTED. THE SEALED SECTION IS NOW VISIBLE.',
+  'code-invalid': 'ACCESS CODE REFUSED. CHECK THE RECOVERED FRAGMENT.',
+  'file-sealed': 'THIS FILE IS SEALED. FIND THE CODE OR THE PRECEDING RECORD FIRST.',
+  'prerequisite-missing': 'THE PREVIOUS FILE HAS NOT BEEN RECOVERED.',
+  'clue-required': 'A RECOVERED CLUE IS REQUIRED BEFORE THIS FILE OPENS.',
+  'clue-found': 'SIGNAL LOGGED. A NEW FRAGMENT IS IN YOUR INVESTIGATION LOG.',
+  'clue-locked': 'SIGNAL LOCKED. DECODE THE EARLIER FRAGMENT FIRST.',
+  'clue-unknown': 'NO SUCH SIGNAL EXISTS IN THIS ARCHIVE.',
+  'clue-disabled': 'THIS SIGNAL HAS GONE DARK.',
+  'answer-correct': 'ANSWER ACCEPTED. THE SUBMISSION IS QUEUED FOR ARCHIVIST REVIEW.',
+  'answer-incorrect': 'ANSWER REFUSED. THE ATTEMPT WAS RECORDED.',
+  'answer-required': 'ENTER AN ANSWER.',
+  'attempts-exhausted': 'NO ATTEMPTS REMAIN FOR THIS FILE.',
+  'already-submitted': 'A CORRECT SUBMISSION IS ALREADY ON FILE. WAIT FOR REVIEW.',
+  'submission-holding': 'HOLDING REQUIREMENT NOT MET AT SUBMISSION TIME.',
+  'wallet-required': 'LINK A WALLET BEFORE SUBMITTING.',
+  'chapter-locked': 'THIS CHAPTER IS ENCRYPTED. RECOVER MORE FRAGMENTS.',
+  'chapter-unknown': 'NO SUCH CHAPTER.',
+  'chapter-saved': 'CHAPTER SAVED.',
+  'chapter-created': 'CHAPTER CREATED AS A DRAFT.',
+  'clue-saved': 'CLUE SAVED.',
+  'clue-created': 'CLUE CREATED. IT IS HIDDEN UNTIL SOMEONE FINDS IT.',
+  'submission-approved': 'SUBMISSION APPROVED. A REWARD RECORD IS AWAITING MANUAL PAYMENT.',
+  'submission-rejected': 'SUBMISSION REJECTED.',
+  'submission-unknown': 'NO SUCH SUBMISSION.',
+  'reward-unknown': 'NO SUCH REWARD.',
+  'reward-confirmed': 'TRANSACTION VERIFIED AND REWARD CONFIRMED.',
+  'reward-pending': 'TRANSACTION NOT YET CONFIRMED ON-CHAIN. THE REWARD REMAINS OPEN.',
+  'reward-failed': 'TRANSACTION VERIFICATION FAILED. THE REWARD REMAINS OPEN.',
+  'reward-already-confirmed': 'THIS REWARD IS ALREADY CONFIRMED.',
+  'transaction-duplicate': 'THAT SIGNATURE IS ALREADY RECORDED.',
+  'transaction-invalid': 'THAT IS NOT A VALID SOLANA SIGNATURE.',
+  'verifier-unavailable': 'ON-CHAIN VERIFICATION IS UNAVAILABLE. NOTHING WAS MARKED PAID.',
+  'holding-failed': 'THE WALLET NO LONGER HOLDS THE REQUIRED F106. APPROVAL REFUSED.',
+  'balance-unavailable': 'THE HOLDING COULD NOT BE READ. APPROVAL REFUSED.',
+  'winner-limit': 'THIS FILE HAS REACHED ITS WINNER LIMIT.',
+  'winner-duplicate': 'THIS WALLET HAS ALREADY WON THIS FILE.',
+  'submission-not-pending': 'THAT SUBMISSION IS NOT AWAITING REVIEW.',
+  'reward-recorded': 'REWARD RECORD CREATED.',
 };
 
 // ---------------------------------------------------------------------
@@ -206,6 +246,68 @@ export function validateFileInput(body = {}) {
     errors.closesAt = 'The closing time must be after the opening time.';
   }
 
+  const classification = normalizeText(body.classification) || 'UNCLASSIFIED';
+  if (classification.length > 40) errors.classification = 'Keep the classification under 40 characters.';
+
+  const loreBody = normalizeText(body.loreBody);
+  if (loreBody.length > 40000) errors.loreBody = 'Keep the recovered document under 40000 characters.';
+
+  const chapterRaw = normalizeText(body.chapterNo);
+  let chapterNo = null;
+  if (chapterRaw !== '') {
+    const parsed = Number.parseInt(chapterRaw, 10);
+    if (!/^\d+$/.test(chapterRaw) || parsed < 1 || parsed > 99) {
+      errors.chapterNo = 'Use a whole number between 1 and 99, or leave it blank.';
+    } else {
+      chapterNo = parsed;
+    }
+  }
+
+  const mysteryOrderRaw = normalizeText(body.mysteryOrder);
+  let mysteryOrder = null;
+  if (mysteryOrderRaw !== '') {
+    const parsed = Number.parseInt(mysteryOrderRaw, 10);
+    if (!/^\d+$/.test(mysteryOrderRaw) || parsed < 1 || parsed > 999) {
+      errors.mysteryOrder = 'Use a whole number between 1 and 999, or leave it blank.';
+    } else {
+      mysteryOrder = parsed;
+    }
+  }
+
+  const unlockHint = normalizeText(body.unlockHint);
+  if (unlockHint.length > 800) errors.unlockHint = 'Keep the hint under 800 characters.';
+
+  const unlockCode = normalizeText(body.unlockCode);
+  if (unlockCode !== '' && (unlockCode.length < 2 || unlockCode.length > 200)) {
+    errors.unlockCode = 'Use between 2 and 200 characters, or leave it blank to keep the current code.';
+  }
+
+  const requiredFileRaw = normalizeText(body.requiredFileNumber);
+  let requiredFileNumber = null;
+  if (requiredFileRaw !== '') {
+    const parsed = Number.parseInt(requiredFileRaw, 10);
+    if (!/^\d+$/.test(requiredFileRaw) || parsed < 1 || parsed > 100000) {
+      errors.requiredFileNumber = 'Use a whole file number, or leave it blank.';
+    } else if (Number.isInteger(number) && parsed === number) {
+      errors.requiredFileNumber = 'A file cannot require itself.';
+    } else {
+      requiredFileNumber = parsed;
+    }
+  }
+
+  const clueRaw = normalizeText(body.unlockRequiresClue);
+  let unlockRequiresClue = null;
+  if (clueRaw !== '') {
+    const parsed = Number.parseInt(clueRaw, 10);
+    if (!/^\d+$/.test(clueRaw) || parsed < 1 || parsed > 999) {
+      errors.unlockRequiresClue = 'Use a clue number such as 3, or leave it blank.';
+    } else {
+      unlockRequiresClue = parsed;
+    }
+  }
+
+  const isMystery = Boolean(body.isMystery) || chapterNo !== null || loreBody !== '' || unlockCode !== '';
+
   return {
     errors,
     value: {
@@ -221,6 +323,16 @@ export function validateFileInput(body = {}) {
       maxWinners,
       opensAt: opens.value,
       closesAt: closes.value,
+      classification,
+      loreBody,
+      chapterNo,
+      mysteryOrder,
+      unlockHint,
+      unlockCode,
+      removeUnlockCode: Boolean(body.removeUnlockCode),
+      requiredFileNumber,
+      unlockRequiresClue,
+      isMystery,
     },
   };
 }
@@ -264,4 +376,161 @@ export function validateChallengeInput(body = {}) {
 
 export function messageText(key) {
   return Object.prototype.hasOwnProperty.call(MESSAGES, key) ? MESSAGES[key] : '';
+}
+
+// ---------------------------------------------------------------------
+// Mystery layer: chapters, clues, unlock codes, submissions, payouts
+// ---------------------------------------------------------------------
+
+export const CHAPTER_STATUSES = ['draft', 'published', 'archived'];
+
+function optionalNumber(raw, { label, min = 1, max = 100000 }) {
+  const text = normalizeText(raw);
+  if (text === '') return { value: null };
+  const parsed = Number.parseInt(text, 10);
+  if (!/^\d+$/.test(text) || parsed < min || parsed > max) {
+    return { error: `Use a whole number between ${min} and ${max}, or leave it blank.` };
+  }
+  return { value: parsed };
+}
+
+export function validateChapterInput(body = {}) {
+  const errors = {};
+
+  const chapterNoRaw = normalizeText(body.chapterNo);
+  const chapterNo = Number.parseInt(chapterNoRaw, 10);
+  if (!/^\d+$/.test(chapterNoRaw) || chapterNo < 1 || chapterNo > 99) {
+    errors.chapterNo = 'Use a whole number between 1 and 99.';
+  }
+
+  const slugInput = normalizeText(body.slug).toLowerCase();
+  const slug = slugInput || (Number.isInteger(chapterNo) ? `chapter-${chapterNo}` : '');
+  if (!SLUG.test(slug)) errors.slug = 'Lowercase letters, digits and dashes only.';
+
+  const eyebrow = normalizeText(body.eyebrow) || (Number.isInteger(chapterNo) ? `CHAPTER ${String(chapterNo).padStart(2, '0')}` : 'CHAPTER');
+  if (eyebrow.length > 60) errors.eyebrow = 'Keep the eyebrow under 60 characters.';
+
+  const title = normalizeText(body.title);
+  if (!title) errors.title = 'Give the chapter a title.';
+  else if (title.length > 120) errors.title = 'Keep the title under 120 characters.';
+
+  const summary = normalizeText(body.summary);
+  if (summary.length > 500) errors.summary = 'Keep the summary under 500 characters.';
+
+  const chapterBody = normalizeText(body.body);
+  if (!chapterBody) errors.body = 'Write the chapter text.';
+  else if (chapterBody.length > 40000) errors.body = 'Keep the chapter under 40000 characters.';
+
+  const requiredCluesRaw = normalizeText(body.requiredClueCount || '0');
+  const requiredClueCount = Number.parseInt(requiredCluesRaw, 10);
+  if (!/^\d+$/.test(requiredCluesRaw) || requiredClueCount < 0 || requiredClueCount > 99) {
+    errors.requiredClueCount = 'Use a whole number between 0 and 99.';
+  }
+
+  const requiredFile = optionalNumber(body.requiredFileNumber, { label: 'Required file' });
+  if (requiredFile.error) errors.requiredFileNumber = requiredFile.error;
+
+  const status = normalizeText(body.status) || 'draft';
+  if (!CHAPTER_STATUSES.includes(status)) errors.status = 'Unknown chapter status.';
+
+  return {
+    errors,
+    value: {
+      chapterNo,
+      slug,
+      eyebrow,
+      title,
+      summary,
+      body: chapterBody,
+      requiredClueCount,
+      requiredFileNumber: requiredFile.value,
+      status,
+    },
+  };
+}
+
+export function validateClueInput(body = {}) {
+  const errors = {};
+
+  const clueNoRaw = normalizeText(body.clueNo);
+  const clueNo = Number.parseInt(clueNoRaw, 10);
+  if (!/^\d+$/.test(clueNoRaw) || clueNo < 1 || clueNo > 999) {
+    errors.clueNo = 'Use a whole number between 1 and 999.';
+  }
+
+  const slugInput = normalizeText(body.slug).toLowerCase();
+  const slug = slugInput || (Number.isInteger(clueNo) ? `clue-${String(clueNo).padStart(3, '0')}` : '');
+  if (!SLUG.test(slug)) errors.slug = 'Lowercase letters, digits and dashes only.';
+
+  const title = normalizeText(body.title);
+  if (!title) errors.title = 'Give the clue a title.';
+  else if (title.length > 120) errors.title = 'Keep the title under 120 characters.';
+
+  const clueBody = normalizeText(body.body);
+  if (!clueBody) errors.body = 'Write what the clue reveals.';
+  else if (clueBody.length > 12000) errors.body = 'Keep the clue under 12000 characters.';
+
+  const hint = normalizeText(body.hint);
+  if (hint.length > 800) errors.hint = 'Keep the hint under 800 characters.';
+
+  const location = normalizeText(body.location);
+  if (location.length > 200) errors.location = 'Keep the location under 200 characters.';
+
+  const chapter = optionalNumber(body.chapterNo, { label: 'Chapter', max: 99 });
+  if (chapter.error) errors.chapterNo = chapter.error;
+
+  const file = optionalNumber(body.fileNumber, { label: 'File number', max: 100000 });
+  if (file.error) errors.fileNumber = file.error;
+
+  const requires = optionalNumber(body.requiresClueNo, { label: 'Required clue', max: 999 });
+  if (requires.error) errors.requiresClueNo = requires.error;
+  else if (requires.value !== null && requires.value === clueNo) {
+    errors.requiresClueNo = 'A clue cannot require itself.';
+  }
+
+  return {
+    errors,
+    value: {
+      clueNo,
+      slug,
+      title,
+      body: clueBody,
+      hint,
+      location,
+      chapterNo: chapter.value,
+      fileNumber: file.value,
+      requiresClueNo: requires.value,
+      isEnabled: body.isEnabled === undefined ? true : Boolean(body.isEnabled),
+    },
+  };
+}
+
+export function validateUnlockCode(value) {
+  const code = normalizeText(value);
+  if (!code) return { error: 'Enter the recovered access code.' };
+  if (code.length < 2 || code.length > 200) return { error: 'That code is not the right shape.' };
+  return { value: code };
+}
+
+export function validateAnswerSubmission(value) {
+  const answer = normalizeText(value);
+  if (!answer) return { error: 'Enter an answer.' };
+  if (answer.length > 500) return { error: 'Keep the answer under 500 characters.' };
+  return { value: answer };
+}
+
+export const TRANSACTION_SIGNATURE = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
+
+export function validateTransactionSignature(value) {
+  const signature = normalizeText(value);
+  if (!TRANSACTION_SIGNATURE.test(signature)) {
+    return { error: 'That is not a valid Solana transaction signature.' };
+  }
+  return { value: signature };
+}
+
+export function validateAdminNote(value) {
+  const note = normalizeText(value);
+  if (note.length > 2000) return { error: 'Keep the note under 2000 characters.' };
+  return { value: note };
 }

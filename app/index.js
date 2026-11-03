@@ -2,7 +2,7 @@
 
 import { loadConfig } from './config.js';
 import { createDb, createPgExecutor } from './db.js';
-import { createRpcBalanceReader } from './lib/solana.js';
+import { createRpcBalanceReader, createRpcTransactionVerifier } from './lib/solana.js';
 import { createMailer } from './lib/mailer.js';
 import { buildServer } from './server.js';
 
@@ -13,12 +13,14 @@ for (const warning of config.warnings) {
 
 const db = createDb(createPgExecutor(config.databaseUrl));
 const balanceReader = createRpcBalanceReader(config.solana);
+const transactionVerifier = createRpcTransactionVerifier(config.solana);
 const mailer = createMailer(config);
 
 const app = await buildServer({
   config,
   db,
   balanceReader,
+  transactionVerifier,
   mailer,
   logger: { level: config.isProduction ? 'info' : 'debug' },
 });

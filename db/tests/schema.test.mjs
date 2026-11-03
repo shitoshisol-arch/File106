@@ -26,7 +26,9 @@ const check = async (name, fn) => {
 
 const db = new PGlite();
 await db.exec(await read('db/migrations/0001_init.sql'));
+await db.exec(await read('db/migrations/0005_mystery.sql'));
 await db.exec(await read('db/seed/0001_devnet_seed.sql'));
+await db.exec(await read('db/seed/0002_mystery_seed.sql'));
 
 const one = async (sql, params) => {
   const { rows } = await db.query(sql, params);
@@ -41,6 +43,7 @@ await check('all documented tables exist', async () => {
     'sessions', 'settings', 'files', 'file_attachments', 'challenges', 'submissions',
     'winners', 'rewards', 'transactions', 'partnerships', 'partnership_campaigns',
     'campaign_tasks', 'social_verifications', 'user_campaign_progress', 'admin_audit_logs',
+    'story_chapters', 'clues', 'user_clue_discoveries', 'file_unlocks', 'investigation_logs',
   ];
   const { rows } = await db.query(
     `select table_name from information_schema.tables
@@ -315,6 +318,56 @@ await check('a paused campaign keeps its reward history', async () => {
   );
   const rewards = await one(`select count(*)::int as n from rewards`);
   assert.equal(rewards.n, 1);
+});
+
+console.log('the mystery layer');
+
+await check('the investigation tables exist', async () => {
+  const { rows } = await db.query(
+    `select table_name from information_schema.tables
+      where table_schema = 'public' and table_type = 'BASE TABLE'`
+  );
+  const found = new Set(rows.map((r) => r.table_name));
+  for (const table of ['story_chapters', 'clues', 'user_clue_discoveries', 'file_unlocks', 'investigation_logs']) {
+    assert.ok(found.has(table), `missing table: ${table}`);
+  }
+});
+
+await check('the clue chain is ordered and acyclic', async () => {
+  const clues = (await db.query('select clue_no, requires_clue_no from clues order by clue_no asc')).rows;
+  assert.equal(clues.length, 5);
+  for (let index = 1; index < clues.length; index += 1) {
+    assert.equal(clues[index].requires_clue_no, clues[index - 1].clue_no, 'the chain must be sequential');
+  }
+});
+
+await check('mystery files are sealed behind a clue and a hashed code', async () => {
+  const report = await one(
+    `select unlock_requires_clue, unlock_code_hash, is_mystery,
+            (unlock_code_hash is not null) as has_unlock_code
+       from files where file_number = 42`
+  );
+  assert.equal(report.is_mystery, true);
+  assert.equal(report.has_unlock_code, true);
+  assert.ok(String(report.unlock_code_hash).startsWith('scrypt$'), 'the code must be hashed');
+
+  const signal = await one(
+    `select unlock_requires_clue, unlock_code_hash, is_mystery
+       from files where file_number = 17`
+  );
+  assert.equal(signal.is_mystery, true);
+  assert.equal(signal.unlock_requires_clue, 3);
+  assert.ok(String(signal.unlock_code_hash).startsWith('scrypt$'));
+
+  const record = await one(
+    `select is_mystery, unlock_code_hash, unlock_requires_clue, lore_body
+       from files where file_number = 1`
+  );
+  assert.equal(record.is_mystery, true);
+  assert.equal(record.unlock_code_hash, null, 'the corrupted record opens without a code');
+  assert.equal(record.unlock_requires_clue, null);
+  assert.ok(String(record.lore_body).includes('[[SYMBOL:1]]'));
+  assert.ok(String(record.lore_body).includes('[[REDACT:2]]'));
 });
 
 console.log(`\n${passed.length} checks passed\n`);

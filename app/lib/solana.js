@@ -83,3 +83,109 @@ export function createRpcBalanceReader({ rpcUrl, commitment, mintAddress, decima
     return { baseUnits, amount: formatUnits(baseUnits, decimals), decimals };
   };
 }
+
+export function explorerUrlFor(signature, cluster = 'mainnet-beta') {
+  const base = `https://explorer.solana.com/tx/${encodeURIComponent(String(signature))}`;
+  return cluster && cluster !== 'mainnet-beta' ? `${base}?cluster=${encodeURIComponent(cluster)}` : base;
+}
+
+// Production transaction verifier. The archive never holds a treasury key, so
+// the only proof of payment it can accept is the chain: a confirmed
+// transaction that moves at least the promised amount of the official mint to
+// the winner's wallet.
+//
+// It reports three outcomes and deliberately never throws for an ordinary
+// on-chain result:
+//
+//   verified  the transaction is confirmed, succeeded, and the recipient's
+//             token balance for the mint grew by at least the promised amount
+//   pending   the RPC has not confirmed it yet; the reward stays open
+//   failed    the transaction exists but does not pay this reward
+//
+// A network or RPC failure throws, and the caller must not mark anything paid.
+export function createRpcTransactionVerifier({ rpcUrl, commitment, cluster, mintAddress, decimals, fetch }) {
+  const connection = new Connection(rpcUrl, fetch ? { commitment, fetch } : commitment);
+  const mint = String(mintAddress);
+
+  const tokenTotal = (balances, owner) => {
+    let total = 0n;
+    for (const entry of balances ?? []) {
+      if (String(entry.mint) !== mint) continue;
+      if (String(entry.owner ?? '') !== owner) continue;
+      const amount = entry.uiTokenAmount?.amount;
+      if (amount) total += BigInt(amount);
+    }
+    return total;
+  };
+
+  return async function verifyTransaction({ signature, recipient, expectedBaseUnits }) {
+    const parsed = await connection.getParsedTransaction(String(signature), {
+      commitment,
+      maxSupportedTransactionVersion: 0,
+    });
+
+    const explorerUrl = explorerUrlFor(signature, cluster);
+
+    if (!parsed) {
+      return {
+        status: 'pending',
+        reason: 'transaction not found at the configured commitment',
+        signature: String(signature),
+        explorerUrl,
+        mintAddress: mint,
+        toAddress: String(recipient ?? ''),
+        amountBaseUnits: 0n,
+      };
+    }
+
+    const common = {
+      signature: String(signature),
+      explorerUrl,
+      mintAddress: mint,
+      toAddress: String(recipient ?? ''),
+      slot: parsed.slot ?? null,
+      blockTime: parsed.blockTime ? new Date(parsed.blockTime * 1000) : null,
+      fromAddress: parsed.transaction?.message?.accountKeys?.[0]?.pubkey?.toString() ?? null,
+    };
+
+    if (parsed.meta?.err) {
+      return {
+        ...common,
+        status: 'failed',
+        reason: 'transaction failed on-chain',
+        amountBaseUnits: 0n,
+      };
+    }
+
+    const before = tokenTotal(parsed.meta?.preTokenBalances, String(recipient ?? ''));
+    const after = tokenTotal(parsed.meta?.postTokenBalances, String(recipient ?? ''));
+    const delta = after - before;
+
+    if (delta <= 0n) {
+      return {
+        ...common,
+        status: 'failed',
+        reason: 'the recipient balance for the official mint did not increase',
+        amountBaseUnits: delta,
+      };
+    }
+
+    const required = BigInt(expectedBaseUnits ?? 0);
+    if (delta < required) {
+      return {
+        ...common,
+        status: 'failed',
+        reason: `the transfer moved ${formatUnits(delta, decimals)} F106, less than the ${formatUnits(required, decimals)} promised`,
+        amountBaseUnits: delta,
+      };
+    }
+
+    return {
+      ...common,
+      status: 'verified',
+      reason: '',
+      amountBaseUnits: delta,
+    };
+  };
+}
+
